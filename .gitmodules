@@ -16,3 +16,6 @@
 [submodule "lib/token-voting-plugin"]
 	path = lib/token-voting-plugin
 	url = https://github.com/aragon/token-voting-plugin
+[submodule "lib/staged-proposal-processor-plugin"]
+	path = lib/staged-proposal-processor-plugin
+	url = https://github.com/aragon/staged-proposal-processor-plugin
