@@ -19,3 +19,6 @@
 [submodule "lib/staged-proposal-processor-plugin"]
 	path = lib/staged-proposal-processor-plugin
 	url = https://github.com/aragon/staged-proposal-processor-plugin
+[submodule "lib/ens-contracts"]
+	path = lib/ens-contracts
+	url = https://github.com/ensdomains/ens-contracts
