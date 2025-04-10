@@ -13,3 +13,6 @@
 [submodule "lib/multisig-plugin"]
 	path = lib/multisig-plugin
 	url = https://github.com/aragon/multisig-plugin
+[submodule "lib/token-voting-plugin"]
+	path = lib/token-voting-plugin
+	url = https://github.com/aragon/token-voting-plugin
