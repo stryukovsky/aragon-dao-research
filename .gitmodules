@@ -10,3 +10,6 @@
 [submodule "lib/admin-plugin"]
 	path = lib/admin-plugin
 	url = https://github.com/aragon/admin-plugin
+[submodule "lib/multisig-plugin"]
+	path = lib/multisig-plugin
+	url = https://github.com/aragon/multisig-plugin
