@@ -18,7 +18,7 @@ VERBOSITY := -vvv
 TEST_COVERAGE_SRC_FILES := $(wildcard test/*.sol test/**/*.sol src/*.sol src/**/*.sol src/libs/ProxyLib.sol)
 TEST_SOURCE_FILES := $(wildcard test/*.t.yaml test/integration/*.t.yaml)
 TEST_TREE_FILES := $(TEST_SOURCE_FILES:.t.yaml=.tree)
-DEPLOYMENT_ADDRESS := $(shell cast wallet address --private-key $(DEPLOYMENT_PRIVATE_KEY))
+DEPLOYMENT_ADDRESS := $(shell cast wallet address --private-key $(DEPLOYMENT_PRIVATE_KEY) 2>/dev/null || echo "NOTE: DEPLOYMENT_PRIVATE_KEY is not defined in .env yet" > /dev/stderr)
 
 DEPLOYMENT_LOG_FILE=deployment-$(patsubst "%",%,$(PRODNET_NETWORK))-$(shell date +"%y-%m-%d-%H-%M").log
 
