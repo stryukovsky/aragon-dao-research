@@ -1,0 +1,11 @@
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+
+@aragon/osx/=lib/osx/packages/contracts/src/
+@aragon/osx-commons-contracts/=lib/osx-commons/contracts/
+@aragon/admin-plugin/=lib/admin-plugin/packages/contracts/src/
+@aragon/multisig-plugin/=lib/multisig-plugin/packages/contracts/src/
+@aragon/token-voting-plugin/=lib/token-voting-plugin/packages/contracts/src/
+@aragon/staged-proposal-processor-plugin/=lib/staged-proposal-processor-plugin/packages/src/
+
+forge-std/=lib/forge-std/src/

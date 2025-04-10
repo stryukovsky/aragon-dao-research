@@ -1,0 +1,3 @@
+ETHERSCAN_NETWORKS := mainnet sepolia holesky
+BLOCKSCOUT_NETWORKS :=
+SOURCIFY_NETWORKS := monadTestnet

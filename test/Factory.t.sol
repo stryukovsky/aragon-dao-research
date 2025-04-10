@@ -2,7 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
+import {AragonTest} from "./base/AragonTest.sol";
 
-contract CounterTest is Test {
+contract FactoryTest is AragonTest {
     function setUp() public {}
 }
