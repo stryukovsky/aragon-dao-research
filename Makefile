@@ -1,6 +1,6 @@
 .DEFAULT_TARGET: help
 
-# Import the .env files and export their values
+# Import settings and constants
 include .env
 include constants.mk
 
@@ -10,7 +10,7 @@ SHELL:=/bin/bash
 
 SOLIDITY_VERSION := 0.8.22
 TEST_TREE_MARKDOWN := TEST_TREE.md
-DEPLOY_SCRIPT := script/Deploy.s.sol:Deploy
+DEPLOY_SCRIPT := script/Deploy.s.sol:DeployScript
 MAKE_TEST_TREE_CMD := deno run ./test/scripts/make-test-tree.ts
 VERBOSITY := -vvv
 
@@ -21,15 +21,17 @@ DEPLOYMENT_ADDRESS := $(shell cast wallet address --private-key $(DEPLOYMENT_PRI
 
 DEPLOYMENT_LOG_FILE=deployment-$(patsubst "%",%,$(PRODNET_NETWORK))-$(shell date +"%y-%m-%d-%H-%M").log
 
-ifeq ($(filter $(subst ",,$(NETWORK)),$(AVAILABLE_NETWORKS)),)
-  $(error Unknown network: $(NETWORK). Must be one of: $(AVAILABLE_NETWORKS) (see constants.mk))
+# Check values
+ifeq ($(filter $(subst ",,$(NETWORK_NAME)),$(AVAILABLE_NETWORKS)),)
+  $(error Unknown network: $(NETWORK_NAME). Must be one of: $(AVAILABLE_NETWORKS) (see constants.mk))
 endif
 
-ifneq ($(filter $(NETWORK), $(ETHERSCAN_NETWORKS)),)
+# Conditional assignments
+ifneq ($(filter $(NETWORK_NAME), $(ETHERSCAN_NETWORKS)),)
 	ETHERSCAN_API_KEY_PARAM := --etherscan-api-key $(ETHERSCAN_API_KEY)
 endif
 
-ifneq ($(filter $(NETWORK), $(BLOCKSCOUT_NETWORKS)),)
+ifneq ($(filter $(NETWORK_NAME), $(BLOCKSCOUT_NETWORKS)),)
 	VERIFIER_TYPE_PARAM = --verifier blockscout
 	VERIFIER_URL_PARAM = --verifier-url "https://$(BLOCKSCOUT_HOST_NAME)/api\?"
 endif
@@ -139,7 +141,6 @@ $(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 predeploy: ## Simulate a protocol deployment
 	@echo "Simulating the deployment"
 	forge script $(DEPLOY_SCRIPT) \
-		--chain $(NETWORK) \
 		--rpc-url $(RPC_URL) \
 		$(VERBOSITY)
 
@@ -148,7 +149,6 @@ deploy: test ## Deploy the protocol and verify the source code
 	@echo "Starting the deployment"
 	@mkdir -p logs/
 	forge script $(DEPLOY_SCRIPT) \
-		--chain $(NETWORK) \
 		--rpc-url $(RPC_URL) \
 		--retries 10 \
 		--delay 8 \
@@ -157,7 +157,7 @@ deploy: test ## Deploy the protocol and verify the source code
 		$(VERIFIER_TYPE_PARAM) \
 		$(VERIFIER_URL_PARAM) \
 		$(ETHERSCAN_API_KEY_PARAM) \
-		$(VERBOSITY) | tee logs/$(DEPLOYMENT_LOG_FILE)
+		$(VERBOSITY) 2>&1 | tee logs/$(DEPLOYMENT_LOG_FILE)
 
 ##
 
