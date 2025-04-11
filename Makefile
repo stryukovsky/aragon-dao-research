@@ -66,6 +66,11 @@ clean: ## Clean the build artifacts
 	rm -f $(TEST_TREE_MARKDOWN)
 	rm -Rf ./out/* lcov.info* ./report/*
 
+# Copy the .env files if not present
+.env:
+	cp .env.example .env
+	@echo "NOTE: Edit the correct values of .env before you continue"
+
 ## Testing lifecycle:
 
 .PHONY: test
@@ -103,9 +108,7 @@ check-tests: $(TEST_TREE_FILES) ## Checks if solidity files are out of sync
 
 markdown-tests: $(TEST_TREE_MARKDOWN) ## Generates a markdown file with the test definitions rendered as a tree
 
-# Internal targets
-
-# Generate a markdown file with the test trees
+# Generate single a markdown file with the test trees
 $(TEST_TREE_MARKDOWN): $(TEST_TREE_FILES)
 	@echo "[Markdown]   TEST_TREE.md"
 	@echo "# Test tree definitions" > $@
@@ -129,11 +132,6 @@ $(TEST_TREE_FILES): $(TEST_SOURCE_FILES)
 	  echo "[Convert]    $$file -> $${file%.t.yaml}.tree" ; \
 		cat $$file | $(MAKE_TEST_TREE_CMD) > $${file%.t.yaml}.tree ; \
 	done
-
-# Copy the .env files if not present
-.env:
-	cp .env.example .env
-	@echo "NOTE: Edit the correct values of .env before you continue"
 
 ## Deployment targets:
 
