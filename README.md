@@ -1,6 +1,6 @@
 # Aragon Protocol Factory
 
-This reposity contains a factory contract and a set of scripts to deploy OSx and the core Aragon plugins to a wide range of networks.
+This reposity contains a factory contract and a set of scripts to deploy OSx and the core Aragon plugins to a wide range of EVM compatible networks.
 
 ## Get Started
 
@@ -14,26 +14,26 @@ The `Makefile` is the target launcher of the project. It's the recommended way t
 $ make
 Available targets:
 
-- make help    	Display the available targets
+- make help             Display the available targets
 
-- make init    	Check the dependencies and prompt to install if needed
-- make clean    	Clean the build artifacts
+- make init             Check the dependencies and prompt to install if needed
+- make clean            Clean the build artifacts
 
 Testing lifecycle:
 
-- make test    	Run unit tests, locally
-- make test-coverage    	Generate an HTML coverage report under ./report
+- make test             Run unit tests, locally
+- make test-coverage    Generate an HTML coverage report under ./report
 
-- make sync-tests    	Scaffold or sync tree files into solidity tests
-- make check-tests    	Checks if solidity files are out of sync
-- make markdown-tests    	Generates a markdown file with the test definitions rendered as a tree
+- make sync-tests       Scaffold or sync tree files into solidity tests
+- make check-tests      Checks if solidity files are out of sync
+- make markdown-tests   Generates a markdown file with the test definitions rendered as a tree
 
 Deployment targets:
 
-- make predeploy    	Simulate a protocol deployment
-- make deploy    	Deploy the protocol and verify the source code
+- make predeploy        Simulate a protocol deployment
+- make deploy           Deploy the protocol and verify the source code
 
-- make refund    	Refund the remaining balance left on the deployment account
+- make refund           Refund the remaining balance left on the deployment account
 ```
 
 Run `make init`:

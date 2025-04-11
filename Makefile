@@ -10,7 +10,6 @@ SHELL:=/bin/bash
 
 SOLIDITY_VERSION := 0.8.22
 TEST_TREE_MARKDOWN := TEST_TREE.md
-MAKEFILE := Makefile
 DEPLOY_SCRIPT := script/Deploy.s.sol:Deploy
 MAKE_TEST_TREE_CMD := deno run ./test/scripts/make-test-tree.ts
 VERBOSITY := -vvv
@@ -40,9 +39,9 @@ help: ## Display the available targets
 	   if [[ "$$line" == "##" ]]; then \
 			echo "" ; \
 		elif [[ "$$line" =~ ^##\ (.*)$$ ]]; then \
-			echo -e "\n$${BASH_REMATCH[1]}\n" ; \
+			printf "\n$${BASH_REMATCH[1]}\n\n" ; \
 		elif [[ "$$line" =~ ^([^:]+):(.*)##\ (.*)$$ ]]; then \
-			echo -e "- make $${BASH_REMATCH[1]}    \t$${BASH_REMATCH[3]}" ; \
+			printf "%s %-*s %s\n" "- make" 16 "$${BASH_REMATCH[1]}" "$${BASH_REMATCH[3]}" ; \
 		fi ; \
 	done
 
