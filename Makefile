@@ -9,9 +9,10 @@ SHELL:=/bin/bash
 # CONSTANTS
 
 SOLIDITY_VERSION := 0.8.22
-TEST_TREE_MARKDOWN := TEST_TREE.md
 DEPLOY_SCRIPT := script/Deploy.s.sol:DeployScript
+MULTISIG_MEMBERS_FILE := ./multisig-members.json
 MAKE_TEST_TREE_CMD := deno run ./test/scripts/make-test-tree.ts
+TEST_TREE_MARKDOWN := TEST_TREE.md
 VERBOSITY := -vvv
 
 TEST_COVERAGE_SRC_FILES := $(wildcard test/*.sol test/**/*.sol src/*.sol src/**/*.sol src/libs/ProxyLib.sol)
@@ -54,7 +55,7 @@ help: ## Display the available targets
 ##
 
 .PHONY: init
-init: .env ## Check the dependencies and prompt to install if needed
+init: .env $(MULTISIG_MEMBERS_FILE) ## Check the dependencies and prompt to install if needed
 	@which deno > /dev/null && echo "Deno is available" || echo "Install Deno:  curl -fsSL https://deno.land/install.sh | sh"
 	@which bulloak > /dev/null && echo "bulloak is available" || echo "Install bulloak:  cargo install bulloak"
 
@@ -70,8 +71,14 @@ clean: ## Clean the build artifacts
 
 # Copy the .env files if not present
 .env:
+	@echo "Creating $(@)"
 	cp .env.example .env
-	@echo "NOTE: Edit the correct values of .env before you continue"
+	@echo "NOTE: Edit the correct values of $(@) before you continue"
+
+$(MULTISIG_MEMBERS_FILE):
+	@echo "Creating $(@)"
+	@echo "NOTE: Edit the correct values of $(@) before you continue"
+	@printf '{\n\t"members": []\n}' > $(@)
 
 ## Testing lifecycle:
 

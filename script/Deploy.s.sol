@@ -13,6 +13,10 @@ import {PlaceholderSetup} from "@aragon/osx/framework/plugin/repo/placeholder/Pl
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
 
+import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
+import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
 import {MultisigSetup} from "@aragon/multisig-plugin/MultisigSetup.sol";
 import {TokenVotingSetup} from "@aragon/token-voting-plugin/TokenVotingSetup.sol";
@@ -28,6 +32,9 @@ import {ProtocolFactory} from "../src/ProtocolFactory.sol";
 /// @dev 1) Deploy the raw contracts and store their addresses locally (this file)
 /// @dev 2) Deploy the factory with the addresses above and tell it to orchestrate the protocol deployment
 contract DeployScript is Script {
+    string constant VERSION = "1.4";
+    string constant MANAGEMENT_DAO_MEMBERS_FILE_NAME = "multisig-members.json";
+
     DAO dao;
     DAORegistry daoRegistry;
     PluginRepo pluginRepo;
@@ -48,7 +55,7 @@ contract DeployScript is Script {
         vm.startBroadcast(privKey);
         console.log("Deployment wallet:", vm.addr(privKey));
         console.log("Chain ID:", block.chainid);
-        console.log("");
+        console.log();
 
         _;
 
@@ -62,15 +69,20 @@ contract DeployScript is Script {
         deployTokenVotingSetup();
         deployStagedProposalProcessorSetup();
 
-        // Factory call
+        // Deploy the factory with immutable settings
         factory = new ProtocolFactory(getFactoryParams());
+
+        // Trigger the deployment
         factory.deployOnce();
+
+        // Done
+        printDeployment();
     }
 
     // Internal helpers
 
     function deployOSxImplementations() internal {
-        /// @dev Deploy implementations with empty values. They will be used to create proxies.
+        /// @dev Deploy implementations with empty values. They will be used to create proxies and to verify the source code.
         dao = new DAO();
         daoRegistry = new DAORegistry();
         pluginRepo = new PluginRepo();
@@ -107,6 +119,35 @@ contract DeployScript is Script {
         stagedProposalProcessorSetup = new StagedProposalProcessorSetup();
     }
 
+    function readManagementDaoMembers()
+        public
+        view
+        returns (address[] memory result)
+    {
+        // JSON list of members
+        string memory path = string.concat(
+            vm.projectRoot(),
+            "/",
+            MANAGEMENT_DAO_MEMBERS_FILE_NAME
+        );
+        string memory strJson = vm.readFile(path);
+
+        bool exists = vm.keyExistsJson(strJson, "$.members");
+        if (!exists) {
+            revert(
+                "The file pointed by MANAGEMENT_DAO_MEMBERS_FILE_NAME does not exist"
+            );
+        }
+
+        result = vm.parseJsonAddressArray(strJson, "$.members");
+
+        if (result.length == 0) {
+            revert(
+                "The file pointed by MANAGEMENT_DAO_MEMBERS_FILE_NAME needs to contain at least one member"
+            );
+        }
+    }
+
     function getFactoryParams()
         internal
         view
@@ -127,7 +168,52 @@ contract DeployScript is Script {
                 multisigSetup: multisigSetup,
                 tokenVotingSetup: tokenVotingSetup,
                 stagedProposalProcessorSetup: stagedProposalProcessorSetup
-            })
+            }),
+            managementDaoMembers: readManagementDaoMembers()
         });
+    }
+
+    function printDeployment() internal view {
+        console.log("OSX version", VERSION);
+
+        (
+            DAO _dao,
+            DAORegistry _daoRegistry,
+            PluginRepo _pluginRepo,
+            PluginRepoRegistry _pluginRepoRegistry,
+            PlaceholderSetup _placeholderSetup,
+            ENSSubdomainRegistrar _ensSubdomainRegistrar,
+            GlobalExecutor _globalExecutor,
+            DAOFactory _daoFactory,
+            PluginRepoFactory _pluginRepoFactory,
+            PluginSetupProcessor _pluginSetupProcessor
+        ) = factory.deployment();
+
+        console.log();
+        console.log("Static contracts:");
+        console.log("- DAOFactory", address(_daoFactory));
+        console.log("- PluginRepoFactory", address(_pluginRepoFactory));
+        console.log("- PluginSetupProcessor", address(_pluginSetupProcessor));
+
+        console.log();
+        console.log("Proxy contracts:");
+
+        console.log();
+        console.log("Protocol helpers:");
+        // console.log("- ENS Subdomain Registrar", address(0));
+        // console.log("- Management DAO", address(0));
+
+        console.log();
+        console.log("Implementations:");
+        console.log("- DAO", address(_dao));
+        console.log("- DAORegistry", address(_daoRegistry));
+        console.log("- PluginRepo", address(_pluginRepo));
+        console.log("- PluginRepoRegistry", address(_pluginRepoRegistry));
+        console.log("- PlaceholderSetup", address(_placeholderSetup));
+        console.log("- ENSSubdomainRegistrar", address(_ensSubdomainRegistrar));
+        console.log("- GlobalExecutor", address(_globalExecutor));
+
+        console.log();
+        console.log("Plugin repositories:");
     }
 }

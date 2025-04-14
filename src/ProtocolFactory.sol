@@ -27,6 +27,7 @@ contract ProtocolFactory {
     struct DeploymentParameters {
         OSxImplementations osxImplementations;
         PluginSetups pluginSetups;
+        address[] managementDaoMembers;
     }
 
     /// @notice The struct containing the implementation addresses for OSx
@@ -40,6 +41,7 @@ contract ProtocolFactory {
         GlobalExecutor globalExecutor;
     }
 
+    /// @notice The struct containing the deployed plugin setup's for the Aragon core plugins
     struct PluginSetups {
         AdminSetup adminSetup;
         MultisigSetup multisigSetup;
@@ -61,6 +63,7 @@ contract ProtocolFactory {
         DAOFactory daoFactory;
         PluginRepoFactory pluginRepoFactory;
         PluginSetupProcessor pluginSetupProcessor;
+        // Plugin Repo's
     }
 
     /// @notice Thrown when attempting to call deployOnce() when the protocol is already deployed.
