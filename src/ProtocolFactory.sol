@@ -18,6 +18,9 @@ import {MultisigSetup} from "@aragon/multisig-plugin/MultisigSetup.sol";
 import {TokenVotingSetup} from "@aragon/token-voting-plugin/TokenVotingSetup.sol";
 import {StagedProposalProcessorSetup} from "@aragon/staged-proposal-processor-plugin/StagedProposalProcessorSetup.sol";
 
+import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 /// @notice This contract orchestrates the full protocol deployment, including the Managing DAO, OSx and Aragon's core plugins.
 /// @dev Given that deploying the factory with all contracts embedded would hit the gas limit, the deployment has two stages:
 /// @dev 1) Deploy the raw contracts and store their addresses locally
@@ -34,9 +37,9 @@ contract ProtocolFactory {
 
     /// @notice The struct containing the implementation addresses for OSx
     struct OSxImplementations {
-        DAO dao;
-        DAORegistry daoRegistry;
-        PluginRepo pluginRepo;
+        DAO daoBase;
+        // DAORegistry daoRegistry;
+        // PluginRepo pluginRepo;
         PluginRepoRegistry pluginRepoRegistry;
         PlaceholderSetup placeholderSetup;
         ENSSubdomainRegistrar ensSubdomainRegistrar;
@@ -91,11 +94,15 @@ contract ProtocolFactory {
         // Plugin Repo's
     }
 
+    /// @notice Emitted when deployOnce() has been called and the deployment is complete.
+    /// @param factory The address of the factory contract where the parameters and addresses can be retrieved.
+    event ProtocolDeployed(ProtocolFactory factory);
+
     /// @notice Thrown when attempting to call deployOnce() when the protocol is already deployed.
     error AlreadyDeployed();
 
-    DeploymentParameters public parameters;
-    Deployment public deployment;
+    DeploymentParameters parameters;
+    Deployment deployment;
 
     /// @notice Initializes the factory and performs the full deployment. Values become read-only after that.
     /// @param _parameters The parameters of the one-time deployment.
@@ -108,25 +115,145 @@ contract ProtocolFactory {
             revert AlreadyDeployed();
         }
 
-        // TODO
+        // Create the DAO that will own the registries and the core plugin repo's
+        prepareManagementDao();
+
+        // Set up the ENS registry and the requested domains
+        prepareEnsRegistry();
+
+        // Deploy the OSx core contracts
+        prepareOSx();
+
+        // Prepare the plugin repo's and their versions
+        prepareAdminPlugin();
+        prepareMultisigPlugin();
+        prepareTokenVotingPlugin();
+        prepareSppPlugin();
+
+        // Drop the factory's permissions on the management DAO
+        concludeManagementDao();
+        concludePermissions();
+
+        emit ProtocolDeployed(this);
+    }
+
+    /// @notice Returns the parameters used by the factory to deploy the protocol
+    function getParameters()
+        external
+        view
+        returns (DeploymentParameters memory)
+    {
+        return parameters;
+    }
+
+    /// @notice Returns the addresses of the OSx contracts as well as the the core plugins
+    function getDeployment() external view returns (Deployment memory) {
+        return deployment;
     }
 
     // Internal helpers
 
-    function prepareManagementDao() internal {}
+    function prepareManagementDao() internal {
+        DAO managementDao = DAO(
+            payable(
+                createProxyAndCall(
+                    address(parameters.osxImplementations.daoBase),
+                    abi.encodeCall(
+                        DAO.initialize,
+                        (
+                            bytes(
+                                parameters.metadataUris.managementDaoMetadata
+                            ), // Metadata URI
+                            address(this), // initialOwner
+                            address(0x0), // Trusted forwarder
+                            "" // DAO URI
+                        )
+                    )
+                )
+            )
+        );
+        deployment.managementDao = address(managementDao);
+
+        // Grant the DAO the required permissions on itself
+        //
+        // Available:
+        // - ROOT_PERMISSION
+        // - UPGRADE_DAO_PERMISSION
+        // - SET_SIGNATURE_VALIDATOR_PERMISSION      [skipped]
+        // - SET_TRUSTED_FORWARDER_PERMISSION        [skipped]
+        // - SET_METADATA_PERMISSION                 [skipped]
+        // - REGISTER_STANDARD_CALLBACK_PERMISSION
+
+        PermissionLib.SingleTargetPermission[]
+            memory items = new PermissionLib.SingleTargetPermission[](3);
+        items[0] = PermissionLib.SingleTargetPermission(
+            PermissionLib.Operation.Grant,
+            deployment.managementDao,
+            managementDao.ROOT_PERMISSION_ID()
+        );
+        items[1] = PermissionLib.SingleTargetPermission(
+            PermissionLib.Operation.Grant,
+            deployment.managementDao,
+            managementDao.UPGRADE_DAO_PERMISSION_ID()
+        );
+        items[2] = PermissionLib.SingleTargetPermission(
+            PermissionLib.Operation.Grant,
+            deployment.managementDao,
+            managementDao.REGISTER_STANDARD_CALLBACK_PERMISSION_ID()
+        );
+
+        managementDao.applySingleTargetPermissions(
+            deployment.managementDao,
+            items
+        );
+    }
+
+    function prepareEnsRegistry() internal {
+        // Set up an ENS Registry
+        // Deploy an ENSSubdomainRegistrar
+        // Register the DAO domain
+        // Register the Plugin domain
+    }
 
     function prepareOSx() internal {
-        deployment.daoFactory = address(
-            new DAOFactory(
-                DAORegistry(address(0)),
-                PluginSetupProcessor(address(0))
-            )
+        // TODO:
+        // Deploy DAORegistry
+        // Deploy PluginRepoRegistry
+
+        deployment.pluginSetupProcessor = address(
+            new PluginSetupProcessor(PluginRepoRegistry(address(0)))
         );
         deployment.pluginRepoFactory = address(
             new PluginRepoFactory(PluginRepoRegistry(address(0)))
         );
-        deployment.pluginSetupProcessor = address(
-            new PluginSetupProcessor(PluginRepoRegistry(address(0)))
+        deployment.daoFactory = address(
+            new DAOFactory(
+                DAORegistry(address(0)),
+                PluginSetupProcessor(deployment.pluginSetupProcessor)
+            )
         );
+
+        deployment.globalExecutor = address(
+            parameters.osxImplementations.globalExecutor
+        );
+    }
+
+    function prepareAdminPlugin() internal {}
+
+    function prepareMultisigPlugin() internal {}
+
+    function prepareTokenVotingPlugin() internal {}
+
+    function prepareSppPlugin() internal {}
+
+    function concludeManagementDao() internal {}
+
+    function concludePermissions() internal {}
+
+    function createProxyAndCall(
+        address _logic,
+        bytes memory _data
+    ) internal returns (address) {
+        return address(new ERC1967Proxy(_logic, _data));
     }
 }
