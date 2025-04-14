@@ -33,6 +33,8 @@ import {ProtocolFactory} from "../src/ProtocolFactory.sol";
 /// @dev 2) Deploy the factory with the addresses above and tell it to orchestrate the protocol deployment
 contract DeployScript is Script {
     string constant VERSION = "1.4";
+    string constant DEFAULT_DAO_ENS_DOMAIN = "dao";
+    string constant DEFAULT_PLUGIN_ENS_SUBDOMAIN = "plugin";
     string constant MANAGEMENT_DAO_MEMBERS_FILE_NAME = "multisig-members.json";
 
     DAO dao;
@@ -148,6 +150,51 @@ contract DeployScript is Script {
         }
     }
 
+    function readMetadataUris()
+        internal
+        view
+        returns (ProtocolFactory.MetadataUris memory result)
+    {
+        result = ProtocolFactory.MetadataUris({
+            managementDaoMetadata: vm.envOr(
+                "MANAGEMENT_DAO_METADATA_URI",
+                string("")
+            ),
+            adminPluginReleaseMetadata: vm.envOr(
+                "ADMIN_PLUGIN_METADATA_URI",
+                string("")
+            ),
+            adminPluginBuildMetadata: vm.envOr(
+                "ADMIN_PLUGIN_BUILD_METADATA_URI",
+                string("")
+            ),
+            multisigPluginReleaseMetadata: vm.envOr(
+                "MULTISIG_PLUGIN_RELEASE_METADATA_URI",
+                string("")
+            ),
+            multisigPluginBuildMetadata: vm.envOr(
+                "MULTISIG_PLUGIN_BUILD_METADATA_URI",
+                string("")
+            ),
+            tokenVotingPluginReleaseMetadata: vm.envOr(
+                "TOKEN_VOTING_PLUGIN_RELEASE_METADATA_URI",
+                string("")
+            ),
+            tokenVotingPluginBuildMetadata: vm.envOr(
+                "TOKEN_VOTING_PLUGIN_BUILD_METADATA_URI",
+                string("")
+            ),
+            stagedProposalProcessorPluginReleaseMetadata: vm.envOr(
+                "STAGED_PROPOSAL_PROCESSOR_PLUGIN_RELEASE_METADATA_URI",
+                string("")
+            ),
+            stagedProposalProcessorPluginBuildMetadata: vm.envOr(
+                "STAGED_PROPOSAL_PROCESSOR_PLUGIN_BUILD_METADATA_URI",
+                string("")
+            )
+        });
+    }
+
     function getFactoryParams()
         internal
         view
@@ -169,6 +216,17 @@ contract DeployScript is Script {
                 tokenVotingSetup: tokenVotingSetup,
                 stagedProposalProcessorSetup: stagedProposalProcessorSetup
             }),
+            ensParameters: ProtocolFactory.EnsParameters({
+                daoRootDomain: vm.envOr(
+                    "DAO_ENS_DOMAIN",
+                    DEFAULT_DAO_ENS_DOMAIN
+                ),
+                pluginSubdomain: vm.envOr(
+                    "PLUGIN_ENS_SUBDOMAIN",
+                    DEFAULT_PLUGIN_ENS_SUBDOMAIN
+                )
+            }),
+            metadataUris: readMetadataUris(),
             managementDaoMembers: readManagementDaoMembers()
         });
     }
@@ -176,44 +234,44 @@ contract DeployScript is Script {
     function printDeployment() internal view {
         console.log("OSX version", VERSION);
 
-        (
-            DAO _dao,
-            DAORegistry _daoRegistry,
-            PluginRepo _pluginRepo,
-            PluginRepoRegistry _pluginRepoRegistry,
-            PlaceholderSetup _placeholderSetup,
-            ENSSubdomainRegistrar _ensSubdomainRegistrar,
-            GlobalExecutor _globalExecutor,
-            DAOFactory _daoFactory,
-            PluginRepoFactory _pluginRepoFactory,
-            PluginSetupProcessor _pluginSetupProcessor
-        ) = factory.deployment();
+        // (
+        //     DAO _dao,
+        //     DAORegistry _daoRegistry,
+        //     PluginRepo _pluginRepo,
+        //     PluginRepoRegistry _pluginRepoRegistry,
+        //     PlaceholderSetup _placeholderSetup,
+        //     ENSSubdomainRegistrar _ensSubdomainRegistrar,
+        //     GlobalExecutor _globalExecutor,
+        //     DAOFactory _daoFactory,
+        //     PluginRepoFactory _pluginRepoFactory,
+        //     PluginSetupProcessor _pluginSetupProcessor
+        // ) = factory.deployment();
 
-        console.log();
-        console.log("Static contracts:");
-        console.log("- DAOFactory", address(_daoFactory));
-        console.log("- PluginRepoFactory", address(_pluginRepoFactory));
-        console.log("- PluginSetupProcessor", address(_pluginSetupProcessor));
+        // console.log();
+        // console.log("Static contracts:");
+        // console.log("- DAOFactory", address(_daoFactory));
+        // console.log("- PluginRepoFactory", address(_pluginRepoFactory));
+        // console.log("- PluginSetupProcessor", address(_pluginSetupProcessor));
 
-        console.log();
-        console.log("Proxy contracts:");
+        // console.log();
+        // console.log("Proxy contracts:");
 
-        console.log();
-        console.log("Protocol helpers:");
-        // console.log("- ENS Subdomain Registrar", address(0));
-        // console.log("- Management DAO", address(0));
+        // console.log();
+        // console.log("Protocol helpers:");
+        // // console.log("- ENS Subdomain Registrar", address(0));
+        // // console.log("- Management DAO", address(0));
 
-        console.log();
-        console.log("Implementations:");
-        console.log("- DAO", address(_dao));
-        console.log("- DAORegistry", address(_daoRegistry));
-        console.log("- PluginRepo", address(_pluginRepo));
-        console.log("- PluginRepoRegistry", address(_pluginRepoRegistry));
-        console.log("- PlaceholderSetup", address(_placeholderSetup));
-        console.log("- ENSSubdomainRegistrar", address(_ensSubdomainRegistrar));
-        console.log("- GlobalExecutor", address(_globalExecutor));
+        // console.log();
+        // console.log("Implementations:");
+        // console.log("- DAO", address(_dao));
+        // console.log("- DAORegistry", address(_daoRegistry));
+        // console.log("- PluginRepo", address(_pluginRepo));
+        // console.log("- PluginRepoRegistry", address(_pluginRepoRegistry));
+        // console.log("- PlaceholderSetup", address(_placeholderSetup));
+        // console.log("- ENSSubdomainRegistrar", address(_ensSubdomainRegistrar));
+        // console.log("- GlobalExecutor", address(_globalExecutor));
 
-        console.log();
-        console.log("Plugin repositories:");
+        // console.log();
+        // console.log("Plugin repositories:");
     }
 }

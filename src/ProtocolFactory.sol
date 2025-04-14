@@ -27,6 +27,8 @@ contract ProtocolFactory {
     struct DeploymentParameters {
         OSxImplementations osxImplementations;
         PluginSetups pluginSetups;
+        EnsParameters ensParameters;
+        MetadataUris metadataUris;
         address[] managementDaoMembers;
     }
 
@@ -49,20 +51,43 @@ contract ProtocolFactory {
         StagedProposalProcessorSetup stagedProposalProcessorSetup;
     }
 
+    /// @notice The struct containing the ENS related parameters
+    struct EnsParameters {
+        /// @notice The root domain to use for DAO's on the DaoRegistry (example: "dao" => dao.eth)
+        string daoRootDomain;
+        /// @notice The subdomain name to use for the PluginRepoRegistry (example: "plugin" => plugin.dao.eth)
+        string pluginSubdomain;
+    }
+
+    /// @notice The struct containing the URI's of the protocol contracts as well as the core plugin repo's
+    struct MetadataUris {
+        string managementDaoMetadata;
+        string adminPluginReleaseMetadata;
+        string adminPluginBuildMetadata;
+        string multisigPluginReleaseMetadata;
+        string multisigPluginBuildMetadata;
+        string tokenVotingPluginReleaseMetadata;
+        string tokenVotingPluginBuildMetadata;
+        string stagedProposalProcessorPluginReleaseMetadata;
+        string stagedProposalProcessorPluginBuildMetadata;
+    }
+
     /// @notice The struct containing the deployed protocol addresses
     struct Deployment {
-        // OSx implementations
-        DAO dao;
-        DAORegistry daoRegistry;
-        PluginRepo pluginRepo;
-        PluginRepoRegistry pluginRepoRegistry;
-        PlaceholderSetup placeholderSetup;
-        ENSSubdomainRegistrar ensSubdomainRegistrar;
-        GlobalExecutor globalExecutor;
         // OSx static contracts
-        DAOFactory daoFactory;
-        PluginRepoFactory pluginRepoFactory;
-        PluginSetupProcessor pluginSetupProcessor;
+        address daoFactory;
+        address pluginRepoFactory;
+        address pluginSetupProcessor;
+        address globalExecutor;
+        address placeholderSetup;
+        // OSx proxies
+        // address dao;
+        // address pluginRepo;
+        address daoRegistry;
+        address pluginRepoRegistry;
+        address ensSubdomainRegistrar;
+        address managementDao;
+        address managementDaoMultisig;
         // Plugin Repo's
     }
 
@@ -79,7 +104,9 @@ contract ProtocolFactory {
     }
 
     function deployOnce() external {
-        if (address(deployment.dao) != address(0)) revert AlreadyDeployed();
+        if (address(deployment.daoFactory) != address(0)) {
+            revert AlreadyDeployed();
+        }
 
         // TODO
     }
@@ -89,15 +116,17 @@ contract ProtocolFactory {
     function prepareManagementDao() internal {}
 
     function prepareOSx() internal {
-        deployment.daoFactory = new DAOFactory(
-            DAORegistry(address(0)),
-            PluginSetupProcessor(address(0))
+        deployment.daoFactory = address(
+            new DAOFactory(
+                DAORegistry(address(0)),
+                PluginSetupProcessor(address(0))
+            )
         );
-        deployment.pluginRepoFactory = new PluginRepoFactory(
-            PluginRepoRegistry(address(0))
+        deployment.pluginRepoFactory = address(
+            new PluginRepoFactory(PluginRepoRegistry(address(0)))
         );
-        deployment.pluginSetupProcessor = new PluginSetupProcessor(
-            PluginRepoRegistry(address(0))
+        deployment.pluginSetupProcessor = address(
+            new PluginSetupProcessor(PluginRepoRegistry(address(0)))
         );
     }
 }
