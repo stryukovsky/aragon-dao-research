@@ -66,6 +66,7 @@ contract DeployScript is Script {
 
     function run() public broadcast {
         deployOSxImplementations();
+
         deployAdminSetup();
         deployMultisigSetup();
         deployTokenVotingSetup();
@@ -210,12 +211,6 @@ contract DeployScript is Script {
                 ensSubdomainRegistrar: ensSubdomainRegistrar,
                 globalExecutor: globalExecutor
             }),
-            pluginSetups: ProtocolFactory.PluginSetups({
-                adminSetup: adminSetup,
-                multisigSetup: multisigSetup,
-                tokenVotingSetup: tokenVotingSetup,
-                stagedProposalProcessorSetup: stagedProposalProcessorSetup
-            }),
             ensParameters: ProtocolFactory.EnsParameters({
                 daoRootDomain: vm.envOr(
                     "DAO_ENS_DOMAIN",
@@ -225,6 +220,12 @@ contract DeployScript is Script {
                     "PLUGIN_ENS_SUBDOMAIN",
                     DEFAULT_PLUGIN_ENS_SUBDOMAIN
                 )
+            }),
+            pluginSetups: ProtocolFactory.PluginSetups({
+                adminSetup: adminSetup,
+                multisigSetup: multisigSetup,
+                tokenVotingSetup: tokenVotingSetup,
+                stagedProposalProcessorSetup: stagedProposalProcessorSetup
             }),
             metadataUris: readMetadataUris(),
             managementDaoMembers: readManagementDaoMembers()

@@ -10,8 +10,11 @@ import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFac
 import {PluginRepoRegistry} from "@aragon/osx/framework/plugin/repo/PluginRepoRegistry.sol";
 import {PlaceholderSetup} from "@aragon/osx/framework/plugin/repo/placeholder/PlaceholderSetup.sol";
 import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
-import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
+
+import {ENSRegistry} from "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
+import {PublicResolver} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
+import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
 import {MultisigSetup} from "@aragon/multisig-plugin/MultisigSetup.sol";
@@ -29,8 +32,8 @@ contract ProtocolFactory {
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
         OSxImplementations osxImplementations;
-        PluginSetups pluginSetups;
         EnsParameters ensParameters;
+        PluginSetups pluginSetups;
         MetadataUris metadataUris;
         address[] managementDaoMembers;
     }
@@ -46,20 +49,20 @@ contract ProtocolFactory {
         GlobalExecutor globalExecutor;
     }
 
-    /// @notice The struct containing the deployed plugin setup's for the Aragon core plugins
-    struct PluginSetups {
-        AdminSetup adminSetup;
-        MultisigSetup multisigSetup;
-        TokenVotingSetup tokenVotingSetup;
-        StagedProposalProcessorSetup stagedProposalProcessorSetup;
-    }
-
     /// @notice The struct containing the ENS related parameters
     struct EnsParameters {
         /// @notice The root domain to use for DAO's on the DaoRegistry (example: "dao" => dao.eth)
         string daoRootDomain;
         /// @notice The subdomain name to use for the PluginRepoRegistry (example: "plugin" => plugin.dao.eth)
         string pluginSubdomain;
+    }
+
+    /// @notice The struct containing the deployed plugin setup's for the Aragon core plugins
+    struct PluginSetups {
+        AdminSetup adminSetup;
+        MultisigSetup multisigSetup;
+        TokenVotingSetup tokenVotingSetup;
+        StagedProposalProcessorSetup stagedProposalProcessorSetup;
     }
 
     /// @notice The struct containing the URI's of the protocol contracts as well as the core plugin repo's
@@ -88,9 +91,12 @@ contract ProtocolFactory {
         // address pluginRepo;
         address daoRegistry;
         address pluginRepoRegistry;
-        address ensSubdomainRegistrar;
         address managementDao;
         address managementDaoMultisig;
+        // ENS
+        address ensRegistry;
+        address ensSubdomainRegistrar;
+        address publicResolver;
         // Plugin Repo's
     }
 
@@ -124,17 +130,19 @@ contract ProtocolFactory {
         // Deploy the OSx core contracts
         prepareOSx();
 
-        // Prepare the plugin repo's and their versions
-        prepareAdminPlugin();
-        prepareMultisigPlugin();
-        prepareTokenVotingPlugin();
-        prepareSppPlugin();
+        preparePermissions();
 
-        // Drop the factory's permissions on the management DAO
-        concludeManagementDao();
-        concludePermissions();
+        // // Prepare the plugin repo's and their versions
+        // prepareAdminPlugin();
+        // prepareMultisigPlugin();
+        // prepareTokenVotingPlugin();
+        // prepareSppPlugin();
 
-        emit ProtocolDeployed(this);
+        // // Drop the factory's permissions on the management DAO
+        // concludeManagementDao();
+        // removePermissions();
+
+        // emit ProtocolDeployed(this);
     }
 
     /// @notice Returns the parameters used by the factory to deploy the protocol
@@ -165,7 +173,7 @@ contract ProtocolFactory {
                                 parameters.metadataUris.managementDaoMetadata
                             ), // Metadata URI
                             address(this), // initialOwner
-                            address(0x0), // Trusted forwarder
+                            address(0), // Trusted forwarder
                             "" // DAO URI
                         )
                     )
@@ -175,14 +183,14 @@ contract ProtocolFactory {
         deployment.managementDao = address(managementDao);
 
         // Grant the DAO the required permissions on itself
-        //
+
         // Available:
         // - ROOT_PERMISSION
         // - UPGRADE_DAO_PERMISSION
+        // - REGISTER_STANDARD_CALLBACK_PERMISSION
         // - SET_SIGNATURE_VALIDATOR_PERMISSION      [skipped]
         // - SET_TRUSTED_FORWARDER_PERMISSION        [skipped]
         // - SET_METADATA_PERMISSION                 [skipped]
-        // - REGISTER_STANDARD_CALLBACK_PERMISSION
 
         PermissionLib.SingleTargetPermission[]
             memory items = new PermissionLib.SingleTargetPermission[](3);
@@ -206,10 +214,25 @@ contract ProtocolFactory {
             deployment.managementDao,
             items
         );
+
+        // Grant the factory execute permission on the Management DAO
+        managementDao.grant(
+            deployment.managementDao,
+            address(this),
+            managementDao.EXECUTE_PERMISSION_ID()
+        );
     }
 
     function prepareEnsRegistry() internal {
-        // Set up an ENS Registry
+        // Set up an ENS environment
+
+        deployment.ensRegistry = new ENSRegistry();
+        // deployment.ensSubdomainRegistrar = new ENSSubdomainRegistrar();
+        deployment.publicResolver = new PublicResolver(
+            ENSRegistry(deployment.ensRegistry),
+            address(0)
+        );
+
         // Deploy an ENSSubdomainRegistrar
         // Register the DAO domain
         // Register the Plugin domain
@@ -217,25 +240,34 @@ contract ProtocolFactory {
 
     function prepareOSx() internal {
         // TODO:
-        // Deploy DAORegistry
-        // Deploy PluginRepoRegistry
+        // Deploy DAORegistry proxy
+        // Deploy PluginRepoRegistry proxy
 
         deployment.pluginSetupProcessor = address(
             new PluginSetupProcessor(PluginRepoRegistry(address(0)))
         );
-        deployment.pluginRepoFactory = address(
-            new PluginRepoFactory(PluginRepoRegistry(address(0)))
-        );
-        deployment.daoFactory = address(
-            new DAOFactory(
-                DAORegistry(address(0)),
-                PluginSetupProcessor(deployment.pluginSetupProcessor)
-            )
-        );
+        // deployment.pluginRepoFactory = address(
+        //     new PluginRepoFactory(PluginRepoRegistry(address(0)))
+        // );
+        // deployment.daoFactory = address(
+        //     new DAOFactory(
+        //         DAORegistry(address(0)),
+        //         PluginSetupProcessor(deployment.pluginSetupProcessor)
+        //     )
+        // );
 
         deployment.globalExecutor = address(
             parameters.osxImplementations.globalExecutor
         );
+        deployment.placeholderSetup = address(
+            parameters.osxImplementations.placeholderSetup
+        );
+    }
+
+    function preparePermissions() internal {
+        // ENS permissions
+        // DAOREgistry permissions
+        // PluginRepoRegistry permissions
     }
 
     function prepareAdminPlugin() internal {}
@@ -246,9 +278,21 @@ contract ProtocolFactory {
 
     function prepareSppPlugin() internal {}
 
-    function concludeManagementDao() internal {}
+    function concludeManagementDao() internal {
+        // Register the ManagementDAO on the DaoRegistry
+        // Temporarily grant permissions to the factory to do so
+        //
+        // Install the multisig plugin
+    }
 
-    function concludePermissions() internal {}
+    function removePermissions() internal {
+        // Remove the execute permission from the factory
+        DAO(payable(deployment.managementDao)).revoke(
+            deployment.managementDao, // where
+            address(this), // who
+            DAO(payable(deployment.managementDao)).EXECUTE_PERMISSION_ID() // permission
+        );
+    }
 
     function createProxyAndCall(
         address _logic,
