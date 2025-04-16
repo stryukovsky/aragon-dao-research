@@ -38,9 +38,8 @@ contract DeployScript is Script {
     string constant MANAGEMENT_DAO_MEMBERS_FILE_NAME = "multisig-members.json";
 
     DAO daoBase;
-    // DAORegistry daoRegistry;
-    // PluginRepo pluginRepo;
-    PluginRepoRegistry pluginRepoRegistry;
+    DAORegistry daoRegistryBase;
+    PluginRepoRegistry pluginRepoRegistryBase;
     PlaceholderSetup placeholderSetup;
     ENSSubdomainRegistrar ensSubdomainRegistrar;
     GlobalExecutor globalExecutor;
@@ -90,11 +89,13 @@ contract DeployScript is Script {
         daoBase = new DAO();
         vm.label(address(daoBase), "DAO Base");
 
-        // daoRegistry = new DAORegistry();
+        daoRegistryBase = new DAORegistry();
+        vm.label(address(daoRegistryBase), "DAORegistry Base");
+
         // pluginRepo = new PluginRepo();
 
-        pluginRepoRegistry = new PluginRepoRegistry();
-        vm.label(address(pluginRepoRegistry), "PluginRepoRegistry Base");
+        pluginRepoRegistryBase = new PluginRepoRegistry();
+        vm.label(address(pluginRepoRegistryBase), "PluginRepoRegistry Base");
 
         placeholderSetup = new PlaceholderSetup();
         vm.label(address(placeholderSetup), "PlaceholderSetup");
@@ -222,9 +223,9 @@ contract DeployScript is Script {
         params = ProtocolFactory.DeploymentParameters({
             osxImplementations: ProtocolFactory.OSxImplementations({
                 daoBase: daoBase,
-                // daoRegistry: daoRegistry,
+                daoRegistryBase: daoRegistryBase,
                 // pluginRepo: pluginRepo,
-                pluginRepoRegistry: pluginRepoRegistry,
+                pluginRepoRegistryBase: pluginRepoRegistryBase,
                 placeholderSetup: placeholderSetup,
                 ensSubdomainRegistrar: ensSubdomainRegistrar,
                 globalExecutor: globalExecutor

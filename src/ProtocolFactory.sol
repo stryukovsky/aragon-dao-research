@@ -45,9 +45,8 @@ contract ProtocolFactory {
     /// @notice The struct containing the implementation addresses for OSx
     struct OSxImplementations {
         DAO daoBase;
-        // DAORegistry daoRegistry;
-        // PluginRepo pluginRepo;
-        PluginRepoRegistry pluginRepoRegistry;
+        DAORegistry daoRegistryBase;
+        PluginRepoRegistry pluginRepoRegistryBase;
         PlaceholderSetup placeholderSetup;
         ENSSubdomainRegistrar ensSubdomainRegistrar;
         GlobalExecutor globalExecutor;
@@ -112,8 +111,8 @@ contract ProtocolFactory {
     /// @notice Thrown when attempting to call deployOnce() when the protocol is already deployed.
     error AlreadyDeployed();
 
-    DeploymentParameters parameters;
-    Deployment deployment;
+    DeploymentParameters private parameters;
+    Deployment private deployment;
 
     /// @notice Initializes the factory and performs the full deployment. Values become read-only after that.
     /// @param _parameters The parameters of the one-time deployment.
@@ -135,7 +134,7 @@ contract ProtocolFactory {
         // Deploy the OSx core contracts
         prepareOSx();
 
-        preparePermissions();
+        // preparePermissions();
 
         // // Prepare the plugin repo's and their versions
         // prepareAdminPlugin();
@@ -325,23 +324,49 @@ contract ProtocolFactory {
     }
 
     function prepareOSx() internal {
-        // TODO:
-        // Deploy DAORegistry proxy
-        // Deploy PluginRepoRegistry proxy
-
-        deployment.pluginSetupProcessor = address(
-            new PluginSetupProcessor(PluginRepoRegistry(address(0)))
+        // Deploy the DAORegistry proxy
+        deployment.daoRegistry = createProxyAndCall(
+            address(parameters.osxImplementations.daoRegistryBase),
+            abi.encodeCall(
+                DAORegistry.initialize,
+                (
+                    IDAO(deployment.managementDao),
+                    ENSSubdomainRegistrar(deployment.daoSubdomainRegistrar)
+                )
+            )
         );
-        // deployment.pluginRepoFactory = address(
-        //     new PluginRepoFactory(PluginRepoRegistry(address(0)))
-        // );
-        // deployment.daoFactory = address(
-        //     new DAOFactory(
-        //         DAORegistry(address(0)),
-        //         PluginSetupProcessor(deployment.pluginSetupProcessor)
-        //     )
-        // );
 
+        // Deploy PluginRepoRegistry proxy
+        deployment.pluginRepoRegistry = createProxyAndCall(
+            address(parameters.osxImplementations.pluginRepoRegistryBase),
+            abi.encodeCall(
+                PluginRepoRegistry.initialize,
+                (
+                    IDAO(deployment.managementDao),
+                    ENSSubdomainRegistrar(deployment.pluginSubdomainRegistrar)
+                )
+            )
+        );
+
+        // Static contract deployments
+        deployment.pluginRepoFactory = address(
+            new PluginRepoFactory(
+                PluginRepoRegistry(deployment.pluginRepoRegistry)
+            )
+        );
+        deployment.pluginSetupProcessor = address(
+            new PluginSetupProcessor(
+                PluginRepoRegistry(deployment.pluginRepoRegistry)
+            )
+        );
+        deployment.daoFactory = address(
+            new DAOFactory(
+                DAORegistry(deployment.daoRegistry),
+                PluginSetupProcessor(deployment.pluginSetupProcessor)
+            )
+        );
+
+        // Storing implementation addresses
         deployment.globalExecutor = address(
             parameters.osxImplementations.globalExecutor
         );
