@@ -376,9 +376,69 @@ contract ProtocolFactory {
     }
 
     function preparePermissions() internal {
-        // ENS permissions
-        // DAOREgistry permissions
+        DAO managementDao = DAO(payable(deployment.managementDao));
+
+        // ENS registrar permissions
+
+        // Allow to register subdomains
+        managementDao.grant(
+            deployment.daoSubdomainRegistrar,
+            deployment.daoRegistry,
+            ENSSubdomainRegistrar(deployment.daoSubdomainRegistrar)
+                .REGISTER_ENS_SUBDOMAIN_PERMISSION_ID()
+        );
+        managementDao.grant(
+            deployment.pluginSubdomainRegistrar,
+            deployment.pluginRepoRegistry,
+            ENSSubdomainRegistrar(deployment.pluginSubdomainRegistrar)
+                .REGISTER_ENS_SUBDOMAIN_PERMISSION_ID()
+        );
+
+        // Allow to perform upgrades
+        managementDao.grant(
+            deployment.daoSubdomainRegistrar,
+            deployment.managementDao,
+            ENSSubdomainRegistrar(deployment.daoSubdomainRegistrar)
+                .UPGRADE_REGISTRAR_PERMISSION_ID()
+        );
+        managementDao.grant(
+            deployment.pluginSubdomainRegistrar,
+            deployment.managementDao,
+            ENSSubdomainRegistrar(deployment.pluginSubdomainRegistrar)
+                .UPGRADE_REGISTRAR_PERMISSION_ID()
+        );
+
+        // DAORegistry permissions
+
+        // Register DAO's
+        managementDao.grant(
+            deployment.daoRegistry,
+            deployment.daoFactory,
+            DAORegistry(deployment.daoRegistry).REGISTER_DAO_PERMISSION_ID()
+        );
+        // Upgrade the implementation
+        managementDao.grant(
+            deployment.daoRegistry,
+            deployment.managementDao,
+            DAORegistry(deployment.daoRegistry).UPGRADE_REGISTRY_PERMISSION_ID()
+        );
+
         // PluginRepoRegistry permissions
+
+        // Register plugins
+        managementDao.grant(
+            deployment.pluginRepoRegistry,
+            deployment.pluginRepoFactory,
+            PluginRepoRegistry(deployment.pluginRepoRegistry)
+                .REGISTER_PLUGIN_REPO_PERMISSION_ID()
+        );
+        // Upgrade the implementation
+        managementDao.grant(
+            deployment.pluginRepoRegistry,
+            deployment.managementDao,
+            PluginRepoRegistry(deployment.pluginRepoRegistry)
+                .UPGRADE_REGISTRY_PERMISSION_ID()
+        );
     }
 
     function prepareAdminPlugin() internal {}
