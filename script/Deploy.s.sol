@@ -74,6 +74,7 @@ contract DeployScript is Script {
 
         // Deploy the factory with immutable settings
         factory = new ProtocolFactory(getFactoryParams());
+        vm.label(address(factory), "Factory");
 
         // Trigger the deployment
         factory.deployOnce();
@@ -87,12 +88,22 @@ contract DeployScript is Script {
     function deployOSxImplementations() internal {
         /// @dev Deploy implementations with empty values. They will be used to create proxies and to verify the source code.
         daoBase = new DAO();
+        vm.label(address(daoBase), "DAO Base");
+
         // daoRegistry = new DAORegistry();
         // pluginRepo = new PluginRepo();
+
         pluginRepoRegistry = new PluginRepoRegistry();
+        vm.label(address(pluginRepoRegistry), "PluginRepoRegistry Base");
+
         placeholderSetup = new PlaceholderSetup();
+        vm.label(address(placeholderSetup), "PlaceholderSetup");
+
         ensSubdomainRegistrar = new ENSSubdomainRegistrar();
+        vm.label(address(ensSubdomainRegistrar), "ENSSubdomainRegistrar Base");
+
         globalExecutor = new GlobalExecutor();
+        vm.label(address(globalExecutor), "GlobalExecutor");
 
         /// @dev The DAOFactory, PluginRepoFactory and PluginSetupProcessor are static.
         /// @dev These contracts will be deployed by the Protocol Factory.
@@ -100,10 +111,12 @@ contract DeployScript is Script {
 
     function deployAdminSetup() internal {
         adminSetup = new AdminSetup();
+        vm.label(address(adminSetup), "AdminSetup");
     }
 
     function deployMultisigSetup() internal {
         multisigSetup = new MultisigSetup();
+        vm.label(address(multisigSetup), "MultisigSetup");
     }
 
     function deployTokenVotingSetup() internal {
@@ -116,10 +129,15 @@ contract DeployScript is Script {
             ),
             new GovernanceWrappedERC20(IERC20Upgradeable(address(0)), "", "")
         );
+        vm.label(address(tokenVotingSetup), "TokenVotingSetup");
     }
 
     function deployStagedProposalProcessorSetup() internal {
         stagedProposalProcessorSetup = new StagedProposalProcessorSetup();
+        vm.label(
+            address(stagedProposalProcessorSetup),
+            "StagedProposalProcessorSetup"
+        );
     }
 
     function readManagementDaoMembers()
@@ -259,8 +277,12 @@ contract DeployScript is Script {
         console.log("- PluginRepoRegistry", deployment.pluginRepoRegistry);
         console.log("- PlaceholderSetup", deployment.placeholderSetup);
         console.log(
-            "- ENSSubdomainRegistrar",
-            deployment.ensSubdomainRegistrar
+            "- DAO ENSSubdomainRegistrar",
+            deployment.daoSubdomainRegistrar
+        );
+        console.log(
+            "- Plugin ENSSubdomainRegistrar",
+            deployment.pluginSubdomainRegistrar
         );
         console.log("- GlobalExecutor", deployment.globalExecutor);
 

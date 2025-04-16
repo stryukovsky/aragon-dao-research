@@ -65,6 +65,7 @@ init: .env $(MULTISIG_MEMBERS_FILE) ## Check the dependencies and prompt to inst
 
 .PHONY: clean
 clean: ## Clean the build artifacts
+	forge clean
 	rm -f $(TEST_TREE_FILES)
 	rm -f $(TEST_TREE_MARKDOWN)
 	rm -Rf ./out/* lcov.info* ./report/*

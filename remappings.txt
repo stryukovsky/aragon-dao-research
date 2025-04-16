@@ -9,5 +9,6 @@
 @aragon/staged-proposal-processor-plugin/=lib/staged-proposal-processor-plugin/src/
 
 @ensdomains/ens-contracts/=lib/ens-contracts/
+@ensdomains/buffer/=lib/buffer/
 
 forge-std/=lib/forge-std/src/

@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import {console} from "forge-std/Script.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
 import {DAORegistry} from "@aragon/osx/framework/dao/DAORegistry.sol";
 import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
@@ -13,7 +14,7 @@ import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSet
 import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
 
 import {ENSRegistry} from "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
-import {PublicResolver} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
+import {PublicResolver, INameWrapper} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
@@ -29,6 +30,9 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 /// @dev 1) Deploy the raw contracts and store their addresses locally
 /// @dev 2) Deploy the factory with the addresses above and tell it to orchestrate the protocol deployment (this file)
 contract ProtocolFactory {
+    bytes32 private constant ROOT_NODE = 0x0;
+    bytes32 private constant ETH_LABEL = keccak256("eth");
+
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
         OSxImplementations osxImplementations;
@@ -95,7 +99,8 @@ contract ProtocolFactory {
         address managementDaoMultisig;
         // ENS
         address ensRegistry;
-        address ensSubdomainRegistrar;
+        address daoSubdomainRegistrar;
+        address pluginSubdomainRegistrar;
         address publicResolver;
         // Plugin Repo's
     }
@@ -226,16 +231,97 @@ contract ProtocolFactory {
     function prepareEnsRegistry() internal {
         // Set up an ENS environment
 
-        deployment.ensRegistry = new ENSRegistry();
-        // deployment.ensSubdomainRegistrar = new ENSSubdomainRegistrar();
-        deployment.publicResolver = new PublicResolver(
-            ENSRegistry(deployment.ensRegistry),
-            address(0)
+        bytes32 ETH_NODE;
+        bytes32 DAO_NODE;
+        bytes32 PLUGIN_DAO_NODE;
+        bytes32 DAO_LABEL = keccak256(
+            bytes(parameters.ensParameters.daoRootDomain)
+        );
+        bytes32 PLUGIN_DAO_LABEL = keccak256(
+            bytes(parameters.ensParameters.pluginSubdomain)
         );
 
-        // Deploy an ENSSubdomainRegistrar
-        // Register the DAO domain
-        // Register the Plugin domain
+        // ENS Registry and PublicResolver
+        ENSRegistry ensRegistry = new ENSRegistry();
+        deployment.ensRegistry = address(ensRegistry);
+
+        deployment.publicResolver = address(
+            new PublicResolver(ensRegistry, INameWrapper(address(0)))
+        );
+
+        // The deployer of ENSRegistry becomes the owner of the root node (0x0).
+
+        // Hold temporary ownership to set the resolver
+
+        ETH_NODE = ensRegistry.setSubnodeOwner(
+            ROOT_NODE,
+            ETH_LABEL,
+            address(this) // deployment.managementDao
+        );
+
+        DAO_NODE = ensRegistry.setSubnodeOwner(
+            ETH_NODE,
+            DAO_LABEL,
+            address(this) // deployment.managementDao
+        );
+        ensRegistry.setResolver(DAO_NODE, deployment.publicResolver);
+
+        PLUGIN_DAO_NODE = ensRegistry.setSubnodeOwner(
+            DAO_NODE,
+            PLUGIN_DAO_LABEL,
+            address(this) // deployment.managementDao
+        );
+        ensRegistry.setResolver(PLUGIN_DAO_NODE, deployment.publicResolver);
+
+        // Set the Management DAO as the final owner (reverse order)
+        ensRegistry.setSubnodeOwner(
+            DAO_NODE,
+            PLUGIN_DAO_LABEL,
+            deployment.managementDao
+        );
+        ensRegistry.setSubnodeOwner(
+            ETH_NODE,
+            DAO_LABEL,
+            deployment.managementDao
+        );
+        ensRegistry.setSubnodeOwner(
+            ROOT_NODE,
+            ETH_LABEL,
+            deployment.managementDao
+        );
+
+        // Deploy the dao.eth ENSSubdomainRegistrar
+        deployment.daoSubdomainRegistrar = createProxyAndCall(
+            address(parameters.osxImplementations.ensSubdomainRegistrar),
+            abi.encodeCall(
+                ENSSubdomainRegistrar.initialize,
+                (
+                    IDAO(deployment.managementDao),
+                    ENSRegistry(deployment.ensRegistry),
+                    DAO_NODE
+                )
+            )
+        );
+
+        // Deploy the plugin.dao.eth ENSSubdomainRegistrar
+        deployment.pluginSubdomainRegistrar = createProxyAndCall(
+            address(parameters.osxImplementations.ensSubdomainRegistrar),
+            abi.encodeCall(
+                ENSSubdomainRegistrar.initialize,
+                (
+                    IDAO(deployment.managementDao),
+                    ENSRegistry(deployment.ensRegistry),
+                    PLUGIN_DAO_NODE
+                )
+            )
+        );
+
+        // Allow the registrars to register subdomains
+        ensRegistry.setApprovalForAll(deployment.daoSubdomainRegistrar, true);
+        ensRegistry.setApprovalForAll(
+            deployment.pluginSubdomainRegistrar,
+            true
+        );
     }
 
     function prepareOSx() internal {
