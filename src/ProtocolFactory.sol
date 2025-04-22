@@ -450,8 +450,29 @@ contract ProtocolFactory {
     function prepareSppPlugin() internal {}
 
     function concludeManagementDao() internal {
+        DAO managementDao = DAO(payable(deployment.managementDao));
+
+        // Grant temporary permissions for the factory to register the Management DAO
+        managementDao.grant(
+            deployment.daoRegistry,
+            address(this),
+            DAORegistry(deployment.daoRegistry).REGISTER_DAO_PERMISSION_ID()
+        );
+
         // Register the ManagementDAO on the DaoRegistry
-        // Temporarily grant permissions to the factory to do so
+        DAORegistry(deployment.daoRegistry).register(
+            managementDao,
+            address(this),
+            MANAGEMENT_DAO_SUBDOMAIN
+        );
+
+        // Revoke the temporary permission
+        managementDao.revoke(
+            deployment.daoRegistry,
+            address(this),
+            DAORegistry(deployment.daoRegistry).REGISTER_DAO_PERMISSION_ID()
+        );
+
         //
         // Install the multisig plugin
     }
