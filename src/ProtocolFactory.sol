@@ -10,14 +10,17 @@ import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepoRegistry} from "@aragon/osx/framework/plugin/repo/PluginRepoRegistry.sol";
 import {PlaceholderSetup} from "@aragon/osx/framework/plugin/repo/placeholder/PlaceholderSetup.sol";
-import {PluginSetupProcessor, PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+import {PluginSetupProcessor, PluginSetupRef, hashHelpers} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
 import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
+import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
+import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
 
 import {ENSRegistry} from "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
 import {PublicResolver, INameWrapper} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
+import {Multisig} from "@aragon/multisig-plugin/Multisig.sol";
 import {MultisigSetup} from "@aragon/multisig-plugin/MultisigSetup.sol";
 import {TokenVotingSetup} from "@aragon/token-voting-plugin/TokenVotingSetup.sol";
 import {StagedProposalProcessorSetup} from "@aragon/staged-proposal-processor-plugin/StagedProposalProcessorSetup.sol";
@@ -35,6 +38,7 @@ contract ProtocolFactory {
     string constant MANAGEMENT_DAO_SUBDOMAIN = "management";
     bytes constant MANAGEMENT_DAO_METADATA_URI =
         "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle";
+    uint8 constant MANAGEMENT_DAO_MIN_APPROVALS = 3;
     uint8 constant MULTISIG_PLUGIN_RELEASE = 1;
     uint8 constant MULTISIG_PLUGIN_BUILD = 3;
 
@@ -500,31 +504,75 @@ contract ProtocolFactory {
             managementDao.SET_METADATA_PERMISSION_ID()
         );
 
-        // Install the multisig plugin
-        bytes memory data = abi.encode(
+        // Management DAO Multisig Plugin
+
+        // Prepare the installation
+        bytes memory setupData = abi.encode(
             parameters.managementDaoMembers,
-            Multisig.MultisigSettings(),
-            IPlugin.TargetConfig(),
-            bytes("")
+            Multisig.MultisigSettings({
+                onlyListed: true,
+                minApprovals: MANAGEMENT_DAO_MIN_APPROVALS
+            }),
+            IPlugin.TargetConfig({
+                target: deployment.managementDao,
+                operation: IPlugin.Operation.Call
+            }),
+            bytes("") // metadata
         );
 
+        PluginSetupRef memory pluginSetupRef = PluginSetupRef(
+            PluginRepo.Tag(MULTISIG_PLUGIN_RELEASE, MULTISIG_PLUGIN_BUILD),
+            PluginRepo(deployment.multisigPluginRepo)
+        );
+        IPluginSetup.PreparedSetupData memory preparedSetupData;
         (
-            address plugin,
-            IPluginSetup.PreparedSetupData preparedSetupData
+            deployment.managementDaoMultisig,
+            preparedSetupData
         ) = PluginSetupProcessor(deployment.pluginSetupProcessor)
-                .prepareInstallation(
-                    deployment.managementDao,
-                    PluginSetupProcessor.PrepareInstallationParams(
-                        PluginSetupRef(
-                            PluginRepo.Tag(
-                                MULTISIG_PLUGIN_RELEASE,
-                                MULTISIG_PLUGIN_BUILD
-                            ),
-                            PluginRepo(deployment.multisigPluginRepo)
-                        ),
-                        data
-                    )
-                );
+            .prepareInstallation(
+                deployment.managementDao,
+                PluginSetupProcessor.PrepareInstallationParams(
+                    pluginSetupRef,
+                    setupData
+                )
+            );
+
+        // Grant temporary permissions to apply the installation
+        managementDao.grant(
+            address(managementDao),
+            deployment.pluginSetupProcessor,
+            managementDao.ROOT_PERMISSION_ID()
+        );
+        managementDao.grant(
+            deployment.pluginSetupProcessor,
+            address(this),
+            PluginSetupProcessor(deployment.pluginSetupProcessor)
+                .APPLY_INSTALLATION_PERMISSION_ID()
+        );
+
+        // Install
+        PluginSetupProcessor(deployment.pluginSetupProcessor).applyInstallation(
+                address(managementDao),
+                PluginSetupProcessor.ApplyInstallationParams(
+                    pluginSetupRef,
+                    deployment.managementDaoMultisig,
+                    preparedSetupData.permissions,
+                    hashHelpers(preparedSetupData.helpers)
+                )
+            );
+
+        // Remove the temporary permissions
+        managementDao.revoke(
+            address(managementDao),
+            deployment.pluginSetupProcessor,
+            managementDao.ROOT_PERMISSION_ID()
+        );
+        managementDao.revoke(
+            deployment.pluginSetupProcessor,
+            address(this),
+            PluginSetupProcessor(deployment.pluginSetupProcessor)
+                .APPLY_INSTALLATION_PERMISSION_ID()
+        );
     }
 
     function removePermissions() internal {
