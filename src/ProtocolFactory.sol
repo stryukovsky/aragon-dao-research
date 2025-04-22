@@ -2,6 +2,9 @@
 pragma solidity ^0.8.17;
 
 import {console} from "forge-std/Script.sol";
+import {FactoriesHelper} from "./FactoriesHelper.sol";
+import {PSPHelper} from "./PSPHelper.sol";
+
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
@@ -45,6 +48,8 @@ contract ProtocolFactory {
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
         OSxImplementations osxImplementations;
+        FactoriesHelper factoriesHelper;
+        PSPHelper pspHelper;
         EnsParameters ensParameters;
         PluginSetups pluginSetups;
         MetadataUris metadataUris;
@@ -147,7 +152,7 @@ contract ProtocolFactory {
         // Deploy the OSx core contracts
         prepareOSx();
 
-        preparePermissions();
+        // preparePermissions();
 
         // Prepare the plugin repo's and their versions
         // prepareAdminPlugin();
@@ -156,8 +161,8 @@ contract ProtocolFactory {
         // prepareSppPlugin();
 
         // Drop the factory's permissions on the management DAO
-        concludeManagementDao();
-        removePermissions();
+        // concludeManagementDao();
+        // removePermissions();
 
         emit ProtocolDeployed(this);
     }
@@ -362,24 +367,23 @@ contract ProtocolFactory {
         );
 
         // Static contract deployments
-        deployment.pluginRepoFactory = address(
-            new PluginRepoFactory(
-                PluginRepoRegistry(deployment.pluginRepoRegistry)
-            )
-        );
+        /// @dev Offloaded to a separate factory to avoid hitting code size limits.
         deployment.pluginSetupProcessor = address(
-            new PluginSetupProcessor(
-                PluginRepoRegistry(deployment.pluginRepoRegistry)
-            )
-        );
-        deployment.daoFactory = address(
-            new DAOFactory(
-                DAORegistry(deployment.daoRegistry),
-                PluginSetupProcessor(deployment.pluginSetupProcessor)
-            )
+            parameters.pspHelper.deployStatic(deployment.pluginRepoRegistry)
         );
 
-        // Storing implementation addresses
+        (deployment.daoFactory, deployment.pluginRepoFactory) = parameters
+            .factoriesHelper
+            .deployStatic(
+                FactoriesHelper.Parameters({
+                    daoRegistry: deployment.daoRegistry,
+                    pluginRepoRegistry: deployment.pluginRepoRegistry,
+                    pluginSetupProcessor: deployment.pluginSetupProcessor
+                })
+            );
+
+        // Store the plain implementation addresses
+
         deployment.globalExecutor = address(
             parameters.osxImplementations.globalExecutor
         );

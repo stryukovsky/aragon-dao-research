@@ -25,6 +25,8 @@ import {GovernanceWrappedERC20} from "@aragon/token-voting-plugin/ERC20/governan
 import {StagedProposalProcessorSetup} from "@aragon/staged-proposal-processor-plugin/StagedProposalProcessorSetup.sol";
 
 import {ProtocolFactory} from "../src/ProtocolFactory.sol";
+import {FactoriesHelper} from "../src/FactoriesHelper.sol";
+import {PSPHelper} from "../src/PSPHelper.sol";
 
 /// @notice This local script triggers a full deploy of OSx, along with the core Aragon plugins and the Management DAO
 /// @dev No privileged actions are performed within this file. All of them take place within the ProtocolFactory contract, on-chain.
@@ -50,6 +52,8 @@ contract DeployScript is Script {
     StagedProposalProcessorSetup stagedProposalProcessorSetup;
 
     ProtocolFactory factory;
+    FactoriesHelper factoriesHelper;
+    PSPHelper pspHelper;
 
     modifier broadcast() {
         uint256 privKey = vm.envUint("DEPLOYMENT_PRIVATE_KEY");
@@ -65,6 +69,7 @@ contract DeployScript is Script {
 
     function run() public broadcast {
         deployOSxImplementations();
+        deployCoreHelpers();
 
         deployAdminSetup();
         deployMultisigSetup();
@@ -107,7 +112,15 @@ contract DeployScript is Script {
         vm.label(address(globalExecutor), "GlobalExecutor");
 
         /// @dev The DAOFactory, PluginRepoFactory and PluginSetupProcessor are static.
-        /// @dev These contracts will be deployed by the Protocol Factory.
+        /// @dev These contracts will be deployed by the FactoriesHelper and the PSPHelper.
+    }
+
+    function deployCoreHelpers() internal {
+        factoriesHelper = new FactoriesHelper();
+        vm.label(address(factoriesHelper), "FactoriesHelper");
+
+        pspHelper = new PSPHelper();
+        vm.label(address(pspHelper), "PSPHelper");
     }
 
     function deployAdminSetup() internal {
@@ -230,6 +243,8 @@ contract DeployScript is Script {
                 ensSubdomainRegistrar: ensSubdomainRegistrar,
                 globalExecutor: globalExecutor
             }),
+            factoriesHelper: factoriesHelper,
+            pspHelper: pspHelper,
             ensParameters: ProtocolFactory.EnsParameters({
                 daoRootDomain: vm.envOr(
                     "DAO_ENS_DOMAIN",
@@ -267,8 +282,11 @@ contract DeployScript is Script {
 
         console.log();
         console.log("Protocol helpers:");
-        // console.log("- ENS Subdomain Registrar", address(0));
-        // console.log("- Management DAO", address(0));
+        console.log("- Management DAO", deployment.managementDao);
+        console.log(
+            "- Management DAO multisig",
+            deployment.managementDaoMultisig
+        );
 
         console.log();
         console.log("Implementations:");
