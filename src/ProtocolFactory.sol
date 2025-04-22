@@ -10,7 +10,7 @@ import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepoRegistry} from "@aragon/osx/framework/plugin/repo/PluginRepoRegistry.sol";
 import {PlaceholderSetup} from "@aragon/osx/framework/plugin/repo/placeholder/PlaceholderSetup.sol";
-import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+import {PluginSetupProcessor, PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
 import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
 
 import {ENSRegistry} from "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
@@ -32,6 +32,11 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract ProtocolFactory {
     bytes32 private constant ROOT_NODE = 0x0;
     bytes32 private constant ETH_LABEL = keccak256("eth");
+    string constant MANAGEMENT_DAO_SUBDOMAIN = "management";
+    bytes constant MANAGEMENT_DAO_METADATA_URI =
+        "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle";
+    uint8 constant MULTISIG_PLUGIN_RELEASE = 1;
+    uint8 constant MULTISIG_PLUGIN_BUILD = 3;
 
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
@@ -102,6 +107,10 @@ contract ProtocolFactory {
         address pluginSubdomainRegistrar;
         address publicResolver;
         // Plugin Repo's
+        address adminPluginRepo;
+        address multisigPluginRepo;
+        address tokenVotingPluginRepo;
+        address stagedProposalProcessorPluginRepo;
     }
 
     /// @notice Emitted when deployOnce() has been called and the deployment is complete.
@@ -473,8 +482,49 @@ contract ProtocolFactory {
             DAORegistry(deployment.daoRegistry).REGISTER_DAO_PERMISSION_ID()
         );
 
-        //
+        // Set the Management DAO metadata
+
+        // Grant temporary permissions for the factory to register the Management DAO
+        managementDao.grant(
+            deployment.managementDao,
+            address(this),
+            managementDao.SET_METADATA_PERMISSION_ID()
+        );
+
+        managementDao.setMetadata(MANAGEMENT_DAO_METADATA_URI);
+
+        // Revoke the temporary permission
+        managementDao.revoke(
+            deployment.managementDao,
+            address(this),
+            managementDao.SET_METADATA_PERMISSION_ID()
+        );
+
         // Install the multisig plugin
+        bytes memory data = abi.encode(
+            parameters.managementDaoMembers,
+            Multisig.MultisigSettings(),
+            IPlugin.TargetConfig(),
+            bytes("")
+        );
+
+        (
+            address plugin,
+            IPluginSetup.PreparedSetupData preparedSetupData
+        ) = PluginSetupProcessor(deployment.pluginSetupProcessor)
+                .prepareInstallation(
+                    deployment.managementDao,
+                    PluginSetupProcessor.PrepareInstallationParams(
+                        PluginSetupRef(
+                            PluginRepo.Tag(
+                                MULTISIG_PLUGIN_RELEASE,
+                                MULTISIG_PLUGIN_BUILD
+                            ),
+                            PluginRepo(deployment.multisigPluginRepo)
+                        ),
+                        data
+                    )
+                );
     }
 
     function removePermissions() internal {
