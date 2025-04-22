@@ -147,19 +147,19 @@ contract ProtocolFactory {
         // Deploy the OSx core contracts
         prepareOSx();
 
-        // preparePermissions();
+        preparePermissions();
 
-        // // Prepare the plugin repo's and their versions
+        // Prepare the plugin repo's and their versions
         // prepareAdminPlugin();
         // prepareMultisigPlugin();
         // prepareTokenVotingPlugin();
         // prepareSppPlugin();
 
-        // // Drop the factory's permissions on the management DAO
-        // concludeManagementDao();
-        // removePermissions();
+        // Drop the factory's permissions on the management DAO
+        concludeManagementDao();
+        removePermissions();
 
-        // emit ProtocolDeployed(this);
+        emit ProtocolDeployed(this);
     }
 
     /// @notice Returns the parameters used by the factory to deploy the protocol
@@ -550,7 +550,7 @@ contract ProtocolFactory {
                 .APPLY_INSTALLATION_PERMISSION_ID()
         );
 
-        // Install
+        // Install the plugin
         PluginSetupProcessor(deployment.pluginSetupProcessor).applyInstallation(
                 address(managementDao),
                 PluginSetupProcessor.ApplyInstallationParams(
