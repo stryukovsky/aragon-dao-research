@@ -2,8 +2,9 @@
 pragma solidity ^0.8.17;
 
 import {console} from "forge-std/Script.sol";
-import {FactoriesHelper} from "./FactoriesHelper.sol";
-import {PSPHelper} from "./PSPHelper.sol";
+import {DAOHelper} from "./helpers/DAOHelper.sol";
+import {PluginRepoHelper} from "./helpers/PluginRepoHelper.sol";
+import {PSPHelper} from "./helpers/PSPHelper.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -48,7 +49,8 @@ contract ProtocolFactory {
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
         OSxImplementations osxImplementations;
-        FactoriesHelper factoriesHelper;
+        DAOHelper daoHelper;
+        PluginRepoHelper pluginRepoHelper;
         PSPHelper pspHelper;
         EnsParameters ensParameters;
         PluginSetups pluginSetups;
@@ -367,20 +369,20 @@ contract ProtocolFactory {
         );
 
         // Static contract deployments
-        /// @dev Offloaded to a separate factory to avoid hitting code size limits.
-        deployment.pluginSetupProcessor = address(
-            parameters.pspHelper.deployStatic(deployment.pluginRepoRegistry)
+        /// @dev Offloaded to separate factories to avoid hitting code size limits.
+
+        deployment.pluginSetupProcessor = parameters.pspHelper.deployStatic(
+            deployment.pluginRepoRegistry
         );
 
-        (deployment.daoFactory, deployment.pluginRepoFactory) = parameters
-            .factoriesHelper
-            .deployStatic(
-                FactoriesHelper.Parameters({
-                    daoRegistry: deployment.daoRegistry,
-                    pluginRepoRegistry: deployment.pluginRepoRegistry,
-                    pluginSetupProcessor: deployment.pluginSetupProcessor
-                })
-            );
+        deployment.daoFactory = parameters.daoHelper.deployFactory(
+            deployment.daoRegistry,
+            deployment.pluginSetupProcessor
+        );
+
+        deployment.daoFactory = parameters.pluginRepoHelper.deployFactory(
+            deployment.pluginRepoRegistry
+        );
 
         // Store the plain implementation addresses
 

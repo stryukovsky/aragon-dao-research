@@ -25,8 +25,9 @@ import {GovernanceWrappedERC20} from "@aragon/token-voting-plugin/ERC20/governan
 import {StagedProposalProcessorSetup} from "@aragon/staged-proposal-processor-plugin/StagedProposalProcessorSetup.sol";
 
 import {ProtocolFactory} from "../src/ProtocolFactory.sol";
-import {FactoriesHelper} from "../src/FactoriesHelper.sol";
-import {PSPHelper} from "../src/PSPHelper.sol";
+import {DAOHelper} from "../src/helpers/DAOHelper.sol";
+import {PluginRepoHelper} from "../src/helpers/PluginRepoHelper.sol";
+import {PSPHelper} from "../src/helpers/PSPHelper.sol";
 
 /// @notice This local script triggers a full deploy of OSx, along with the core Aragon plugins and the Management DAO
 /// @dev No privileged actions are performed within this file. All of them take place within the ProtocolFactory contract, on-chain.
@@ -52,7 +53,8 @@ contract DeployScript is Script {
     StagedProposalProcessorSetup stagedProposalProcessorSetup;
 
     ProtocolFactory factory;
-    FactoriesHelper factoriesHelper;
+    DAOHelper daoHelper;
+    PluginRepoHelper pluginRepoHelper;
     PSPHelper pspHelper;
 
     modifier broadcast() {
@@ -112,12 +114,15 @@ contract DeployScript is Script {
         vm.label(address(globalExecutor), "GlobalExecutor");
 
         /// @dev The DAOFactory, PluginRepoFactory and PluginSetupProcessor are static.
-        /// @dev These contracts will be deployed by the FactoriesHelper and the PSPHelper.
+        /// @dev These contracts will be deployed by the DAOHelper, the PluginRepoHelper and the PSPHelper.
     }
 
     function deployCoreHelpers() internal {
-        factoriesHelper = new FactoriesHelper();
-        vm.label(address(factoriesHelper), "FactoriesHelper");
+        daoHelper = new DAOHelper();
+        vm.label(address(daoHelper), "DAOHelper");
+
+        pluginRepoHelper = new PluginRepoHelper();
+        vm.label(address(pluginRepoHelper), "PluginRepoHelper");
 
         pspHelper = new PSPHelper();
         vm.label(address(pspHelper), "PSPHelper");
@@ -243,7 +248,8 @@ contract DeployScript is Script {
                 ensSubdomainRegistrar: ensSubdomainRegistrar,
                 globalExecutor: globalExecutor
             }),
-            factoriesHelper: factoriesHelper,
+            daoHelper: daoHelper,
+            pluginRepoHelper: pluginRepoHelper,
             pspHelper: pspHelper,
             ensParameters: ProtocolFactory.EnsParameters({
                 daoRootDomain: vm.envOr(
