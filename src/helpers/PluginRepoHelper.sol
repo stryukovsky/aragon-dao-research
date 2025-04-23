@@ -9,9 +9,9 @@ import {PluginRepoRegistry} from "@aragon/osx/framework/plugin/repo/PluginRepoRe
 contract PluginRepoHelper {
     function deployFactory(
         address pluginRepoRegistry
-    ) external returns (address pluginRepoFactory) {
-        pluginRepoFactory = address(
-            new PluginRepoFactory(PluginRepoRegistry(pluginRepoRegistry))
+    ) external returns (PluginRepoFactory pluginRepoFactory) {
+        pluginRepoFactory = new PluginRepoFactory(
+            PluginRepoRegistry(pluginRepoRegistry)
         );
     }
 }

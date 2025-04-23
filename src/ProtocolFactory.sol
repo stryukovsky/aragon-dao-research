@@ -6,7 +6,7 @@ import {DAOHelper} from "./helpers/DAOHelper.sol";
 import {PluginRepoHelper} from "./helpers/PluginRepoHelper.sol";
 import {PSPHelper} from "./helpers/PSPHelper.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {DAO, Action} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
 import {DAORegistry} from "@aragon/osx/framework/dao/DAORegistry.sol";
@@ -38,7 +38,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 /// @dev 2) Deploy the factory with the addresses above and tell it to orchestrate the protocol deployment (this file)
 contract ProtocolFactory {
     bytes32 private constant ROOT_NODE = 0x0;
-    bytes32 private constant ETH_LABEL = keccak256("eth");
+    bytes32 private constant ETH_LABEL_HASH = keccak256("eth");
     string constant MANAGEMENT_DAO_SUBDOMAIN = "management";
     bytes constant MANAGEMENT_DAO_METADATA_URI =
         "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle";
@@ -146,7 +146,7 @@ contract ProtocolFactory {
         }
 
         // Create the DAO that will own the registries and the core plugin repo's
-        prepareManagementDao();
+        prepareRawManagementDao();
 
         // Set up the ENS registry and the requested domains
         prepareEnsRegistry();
@@ -154,7 +154,7 @@ contract ProtocolFactory {
         // Deploy the OSx core contracts
         prepareOSx();
 
-        // preparePermissions();
+        preparePermissions();
 
         // Prepare the plugin repo's and their versions
         // prepareAdminPlugin();
@@ -163,7 +163,7 @@ contract ProtocolFactory {
         // prepareSppPlugin();
 
         // Drop the factory's permissions on the management DAO
-        // concludeManagementDao();
+        concludeManagementDao();
         // removePermissions();
 
         emit ProtocolDeployed(this);
@@ -185,7 +185,7 @@ contract ProtocolFactory {
 
     // Internal helpers
 
-    function prepareManagementDao() internal {
+    function prepareRawManagementDao() internal {
         DAO managementDao = DAO(
             payable(
                 createProxyAndCall(
@@ -253,10 +253,10 @@ contract ProtocolFactory {
         bytes32 ETH_NODE;
         bytes32 DAO_NODE;
         bytes32 PLUGIN_DAO_NODE;
-        bytes32 DAO_LABEL = keccak256(
+        bytes32 DAO_LABEL_HASH = keccak256(
             bytes(parameters.ensParameters.daoRootDomain)
         );
-        bytes32 PLUGIN_DAO_LABEL = keccak256(
+        bytes32 PLUGIN_DAO_LABEL_HASH = keccak256(
             bytes(parameters.ensParameters.pluginSubdomain)
         );
 
@@ -274,20 +274,20 @@ contract ProtocolFactory {
 
         ETH_NODE = ensRegistry.setSubnodeOwner(
             ROOT_NODE,
-            ETH_LABEL,
+            ETH_LABEL_HASH,
             address(this) // deployment.managementDao
         );
 
         DAO_NODE = ensRegistry.setSubnodeOwner(
             ETH_NODE,
-            DAO_LABEL,
+            DAO_LABEL_HASH,
             address(this) // deployment.managementDao
         );
         ensRegistry.setResolver(DAO_NODE, deployment.publicResolver);
 
         PLUGIN_DAO_NODE = ensRegistry.setSubnodeOwner(
             DAO_NODE,
-            PLUGIN_DAO_LABEL,
+            PLUGIN_DAO_LABEL_HASH,
             address(this) // deployment.managementDao
         );
         ensRegistry.setResolver(PLUGIN_DAO_NODE, deployment.publicResolver);
@@ -295,17 +295,17 @@ contract ProtocolFactory {
         // Set the Management DAO as the final owner (reverse order)
         ensRegistry.setSubnodeOwner(
             DAO_NODE,
-            PLUGIN_DAO_LABEL,
+            PLUGIN_DAO_LABEL_HASH,
             deployment.managementDao
         );
         ensRegistry.setSubnodeOwner(
             ETH_NODE,
-            DAO_LABEL,
+            DAO_LABEL_HASH,
             deployment.managementDao
         );
         ensRegistry.setSubnodeOwner(
             ROOT_NODE,
-            ETH_LABEL,
+            ETH_LABEL_HASH,
             deployment.managementDao
         );
 
@@ -336,11 +336,23 @@ contract ProtocolFactory {
         );
 
         // Allow the registrars to register subdomains
-        ensRegistry.setApprovalForAll(deployment.daoSubdomainRegistrar, true);
-        ensRegistry.setApprovalForAll(
-            deployment.pluginSubdomainRegistrar,
-            true
+
+        /// @dev Registrars needs to be set as the operator by the effective owner (the Management DAO).
+        /// @dev Doing it from the factory wouldn't work.
+
+        Action[] memory actions = new Action[](2);
+        actions[0].to = address(ensRegistry);
+        actions[0].data = abi.encodeCall(
+            ENSRegistry.setApprovalForAll,
+            (deployment.daoSubdomainRegistrar, true)
         );
+        actions[1].to = address(ensRegistry);
+        actions[1].data = abi.encodeCall(
+            ENSRegistry.setApprovalForAll,
+            (deployment.pluginSubdomainRegistrar, true)
+        );
+
+        DAO(payable(deployment.managementDao)).execute(bytes32(0), actions, 0);
     }
 
     function prepareOSx() internal {
@@ -371,17 +383,19 @@ contract ProtocolFactory {
         // Static contract deployments
         /// @dev Offloaded to separate factories to avoid hitting code size limits.
 
-        deployment.pluginSetupProcessor = parameters.pspHelper.deployStatic(
-            deployment.pluginRepoRegistry
+        deployment.pluginSetupProcessor = address(
+            parameters.pspHelper.deployStatic(deployment.pluginRepoRegistry)
         );
-
-        deployment.daoFactory = parameters.daoHelper.deployFactory(
-            deployment.daoRegistry,
-            deployment.pluginSetupProcessor
+        deployment.daoFactory = address(
+            parameters.daoHelper.deployFactory(
+                deployment.daoRegistry,
+                deployment.pluginSetupProcessor
+            )
         );
-
-        deployment.daoFactory = parameters.pluginRepoHelper.deployFactory(
-            deployment.pluginRepoRegistry
+        deployment.pluginRepoFactory = address(
+            parameters.pluginRepoHelper.deployFactory(
+                deployment.pluginRepoRegistry
+            )
         );
 
         // Store the plain implementation addresses

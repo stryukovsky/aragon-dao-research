@@ -9,10 +9,7 @@ import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSet
 contract PSPHelper {
     function deployStatic(
         address pluginRepoRegistry
-    ) external returns (address) {
-        return
-            address(
-                new PluginSetupProcessor(PluginRepoRegistry(pluginRepoRegistry))
-            );
+    ) external returns (PluginSetupProcessor) {
+        return new PluginSetupProcessor(PluginRepoRegistry(pluginRepoRegistry));
     }
 }

@@ -11,12 +11,10 @@ contract DAOHelper {
     function deployFactory(
         address daoRegistry,
         address pluginSetupProcessor
-    ) external returns (address daoFactory) {
-        daoFactory = address(
-            new DAOFactory(
-                DAORegistry(daoRegistry),
-                PluginSetupProcessor(pluginSetupProcessor)
-            )
+    ) external returns (DAOFactory daoFactory) {
+        daoFactory = new DAOFactory(
+            DAORegistry(daoRegistry),
+            PluginSetupProcessor(pluginSetupProcessor)
         );
     }
 }
