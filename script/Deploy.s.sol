@@ -188,50 +188,43 @@ contract DeployScript is Script {
         }
     }
 
-    function readMetadataUris()
-        internal
-        view
-        returns (ProtocolFactory.MetadataUris memory result)
-    {
+    /*
+    function readMetadataUris() internal view returns () {
         result = ProtocolFactory.MetadataUris({
-            managementDaoMetadata: vm.envOr(
-                "MANAGEMENT_DAO_METADATA_URI",
-                string("")
-            ),
             adminPluginReleaseMetadata: vm.envOr(
-                "ADMIN_PLUGIN_METADATA_URI",
-                string("")
+                "ADMIN_PLUGIN_RELEASE_METADATA_URI",
+                string("ipfs://")
             ),
             adminPluginBuildMetadata: vm.envOr(
                 "ADMIN_PLUGIN_BUILD_METADATA_URI",
-                string("")
+                string("ipfs://")
             ),
             multisigPluginReleaseMetadata: vm.envOr(
                 "MULTISIG_PLUGIN_RELEASE_METADATA_URI",
-                string("")
+                string("ipfs://")
             ),
             multisigPluginBuildMetadata: vm.envOr(
                 "MULTISIG_PLUGIN_BUILD_METADATA_URI",
-                string("")
+                string("ipfs://")
             ),
             tokenVotingPluginReleaseMetadata: vm.envOr(
                 "TOKEN_VOTING_PLUGIN_RELEASE_METADATA_URI",
-                string("")
+                string("ipfs://")
             ),
             tokenVotingPluginBuildMetadata: vm.envOr(
                 "TOKEN_VOTING_PLUGIN_BUILD_METADATA_URI",
-                string("")
+                string("ipfs://")
             ),
             stagedProposalProcessorPluginReleaseMetadata: vm.envOr(
                 "STAGED_PROPOSAL_PROCESSOR_PLUGIN_RELEASE_METADATA_URI",
-                string("")
+                string("ipfs://")
             ),
             stagedProposalProcessorPluginBuildMetadata: vm.envOr(
                 "STAGED_PROPOSAL_PROCESSOR_PLUGIN_BUILD_METADATA_URI",
-                string("")
+                string("ipfs://")
             )
         });
-    }
+        }*/
 
     function getFactoryParams()
         internal
@@ -261,14 +254,86 @@ contract DeployScript is Script {
                     DEFAULT_PLUGIN_ENS_SUBDOMAIN
                 )
             }),
-            pluginSetups: ProtocolFactory.PluginSetups({
-                adminSetup: adminSetup,
-                multisigSetup: multisigSetup,
-                tokenVotingSetup: tokenVotingSetup,
-                stagedProposalProcessorSetup: stagedProposalProcessorSetup
+            corePlugins: ProtocolFactory.CorePlugins({
+                adminPlugin: ProtocolFactory.CorePlugin({
+                    pluginSetup: adminSetup,
+                    release: 1,
+                    build: 2,
+                    releaseMetadata: vm.envOr(
+                        "ADMIN_PLUGIN_RELEASE_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    buildMetadata: vm.envOr(
+                        "ADMIN_PLUGIN_BUILD_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    subdomain: vm.envOr(
+                        "ADMIN_PLUGIN_SUBDOMAIN",
+                        string("admin")
+                    )
+                }),
+                multisigPlugin: ProtocolFactory.CorePlugin({
+                    pluginSetup: multisigSetup,
+                    release: 1,
+                    build: 3,
+                    releaseMetadata: vm.envOr(
+                        "MULTISIG_PLUGIN_RELEASE_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    buildMetadata: vm.envOr(
+                        "MULTISIG_PLUGIN_BUILD_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    subdomain: vm.envOr(
+                        "MULTISIG_PLUGIN_SUBDOMAIN",
+                        string("multisig")
+                    )
+                }),
+                tokenVotingPlugin: ProtocolFactory.CorePlugin({
+                    pluginSetup: tokenVotingSetup,
+                    release: 1,
+                    build: 3,
+                    releaseMetadata: vm.envOr(
+                        "TOKEN_VOTING_PLUGIN_RELEASE_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    buildMetadata: vm.envOr(
+                        "TOKEN_VOTING_PLUGIN_BUILD_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    subdomain: vm.envOr(
+                        "TOKEN_VOTING_PLUGIN_SUBDOMAIN",
+                        string("token-voting")
+                    )
+                }),
+                stagedProposalProcessorPlugin: ProtocolFactory.CorePlugin({
+                    pluginSetup: stagedProposalProcessorSetup,
+                    release: 1,
+                    build: 1,
+                    releaseMetadata: vm.envOr(
+                        "STAGED_PROPOSAL_PROCESSOR_PLUGIN_RELEASE_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    buildMetadata: vm.envOr(
+                        "STAGED_PROPOSAL_PROCESSOR_PLUGIN_BUILD_METADATA_URI",
+                        string("ipfs://")
+                    ),
+                    subdomain: vm.envOr(
+                        "STAGED_PROPOSAL_PROCESSOR_PLUGIN_SUBDOMAIN",
+                        string("spp")
+                    )
+                })
             }),
-            metadataUris: readMetadataUris(),
-            managementDaoMembers: readManagementDaoMembers()
+            managementDaoMetadata: vm.envOr(
+                "MANAGEMENT_DAO_METADATA_URI",
+                string(
+                    "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle"
+                )
+            ),
+            managementDaoMembers: readManagementDaoMembers(),
+            managementDaoMinApprovals: uint8(
+                vm.envOr("MANAGEMENT_DAO_MIN_APPROVALS", uint256(3))
+            )
         });
     }
 

@@ -40,22 +40,23 @@ contract ProtocolFactory {
     bytes32 private constant ROOT_NODE = 0x0;
     bytes32 private constant ETH_LABEL_HASH = keccak256("eth");
     string constant MANAGEMENT_DAO_SUBDOMAIN = "management";
-    bytes constant MANAGEMENT_DAO_METADATA_URI =
-        "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle";
-    uint8 constant MANAGEMENT_DAO_MIN_APPROVALS = 3;
-    uint8 constant MULTISIG_PLUGIN_RELEASE = 1;
-    uint8 constant MULTISIG_PLUGIN_BUILD = 3;
 
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
+        // OSx
         OSxImplementations osxImplementations;
+        // Factories
         DAOHelper daoHelper;
         PluginRepoHelper pluginRepoHelper;
         PSPHelper pspHelper;
+        // ENS
         EnsParameters ensParameters;
-        PluginSetups pluginSetups;
-        MetadataUris metadataUris;
+        // Plugins
+        CorePlugins corePlugins;
+        // Management DAO
+        string managementDaoMetadata;
         address[] managementDaoMembers;
+        uint8 managementDaoMinApprovals;
     }
 
     /// @notice The struct containing the implementation addresses for OSx
@@ -76,25 +77,22 @@ contract ProtocolFactory {
         string pluginSubdomain;
     }
 
-    /// @notice The struct containing the deployed plugin setup's for the Aragon core plugins
-    struct PluginSetups {
-        AdminSetup adminSetup;
-        MultisigSetup multisigSetup;
-        TokenVotingSetup tokenVotingSetup;
-        StagedProposalProcessorSetup stagedProposalProcessorSetup;
+    /// @notice Encapsulates the parameters for each core plugin
+    struct CorePlugin {
+        IPluginSetup pluginSetup;
+        uint8 release;
+        uint8 build;
+        string releaseMetadata;
+        string buildMetadata;
+        string subdomain;
     }
 
-    /// @notice The struct containing the URI's of the protocol contracts as well as the core plugin repo's
-    struct MetadataUris {
-        string managementDaoMetadata;
-        string adminPluginReleaseMetadata;
-        string adminPluginBuildMetadata;
-        string multisigPluginReleaseMetadata;
-        string multisigPluginBuildMetadata;
-        string tokenVotingPluginReleaseMetadata;
-        string tokenVotingPluginBuildMetadata;
-        string stagedProposalProcessorPluginReleaseMetadata;
-        string stagedProposalProcessorPluginBuildMetadata;
+    /// @notice The struct containing the deployed plugin setup's for the Aragon core plugins
+    struct CorePlugins {
+        CorePlugin adminPlugin;
+        CorePlugin multisigPlugin;
+        CorePlugin tokenVotingPlugin;
+        CorePlugin stagedProposalProcessorPlugin;
     }
 
     /// @notice The struct containing the deployed protocol addresses
@@ -106,8 +104,6 @@ contract ProtocolFactory {
         address globalExecutor;
         address placeholderSetup;
         // OSx proxies
-        // address dao;
-        // address pluginRepo;
         address daoRegistry;
         address pluginRepoRegistry;
         address managementDao;
@@ -157,14 +153,11 @@ contract ProtocolFactory {
         preparePermissions();
 
         // Prepare the plugin repo's and their versions
-        // prepareAdminPlugin();
-        // prepareMultisigPlugin();
-        // prepareTokenVotingPlugin();
-        // prepareSppPlugin();
+        prepareCorePluginRepos();
 
         // Drop the factory's permissions on the management DAO
         concludeManagementDao();
-        // removePermissions();
+        removePermissions();
 
         emit ProtocolDeployed(this);
     }
@@ -193,9 +186,7 @@ contract ProtocolFactory {
                     abi.encodeCall(
                         DAO.initialize,
                         (
-                            bytes(
-                                parameters.metadataUris.managementDaoMetadata
-                            ), // Metadata URI
+                            bytes(parameters.managementDaoMetadata), // Metadata URI
                             address(this), // initialOwner
                             address(0), // Trusted forwarder
                             "" // DAO URI
@@ -474,13 +465,71 @@ contract ProtocolFactory {
         );
     }
 
-    function prepareAdminPlugin() internal {}
+    function prepareCorePluginRepos() internal {
+        deployment.adminPluginRepo = preparePluginRepo(
+            parameters.corePlugins.adminPlugin
+        );
+        deployment.multisigPluginRepo = preparePluginRepo(
+            parameters.corePlugins.multisigPlugin
+        );
+        deployment.tokenVotingPluginRepo = preparePluginRepo(
+            parameters.corePlugins.tokenVotingPlugin
+        );
+        deployment.stagedProposalProcessorPluginRepo = preparePluginRepo(
+            parameters.corePlugins.stagedProposalProcessorPlugin
+        );
+    }
 
-    function prepareMultisigPlugin() internal {}
+    function preparePluginRepo(
+        CorePlugin memory corePlugin
+    ) internal returns (address pluginRepo) {
+        // Make it owned by the Management DAO upfront
+        pluginRepo = address(
+            PluginRepoFactory(deployment.pluginRepoFactory).createPluginRepo(
+                corePlugin.subdomain,
+                deployment.managementDao
+            )
+        );
 
-    function prepareTokenVotingPlugin() internal {}
+        // Make the Management DAO publish the initial version(s)
 
-    function prepareSppPlugin() internal {}
+        Action[] memory actions = new Action[](1);
+        actions[0].to = pluginRepo;
+
+        // Publish a placeholder on older builds
+        if (corePlugin.build > 1) {
+            actions[0].data = abi.encodeCall(
+                PluginRepo.createVersion,
+                (
+                    corePlugin.release,
+                    address(parameters.osxImplementations.placeholderSetup),
+                    bytes(corePlugin.buildMetadata),
+                    bytes(corePlugin.releaseMetadata)
+                )
+            );
+
+            for (uint256 i = 1; i < corePlugin.build; i++) {
+                DAO(payable(deployment.managementDao)).execute(
+                    bytes32(0),
+                    actions,
+                    0
+                );
+            }
+        }
+
+        // The actual plugin setup
+        actions[0].data = abi.encodeCall(
+            PluginRepo.createVersion,
+            (
+                corePlugin.release,
+                address(corePlugin.pluginSetup),
+                bytes(corePlugin.buildMetadata),
+                bytes(corePlugin.releaseMetadata)
+            )
+        );
+
+        DAO(payable(deployment.managementDao)).execute(bytes32(0), actions, 0);
+    }
 
     function concludeManagementDao() internal {
         DAO managementDao = DAO(payable(deployment.managementDao));
@@ -506,32 +555,22 @@ contract ProtocolFactory {
             DAORegistry(deployment.daoRegistry).REGISTER_DAO_PERMISSION_ID()
         );
 
-        // Set the Management DAO metadata
-
-        // Grant temporary permissions for the factory to register the Management DAO
-        managementDao.grant(
-            deployment.managementDao,
-            address(this),
-            managementDao.SET_METADATA_PERMISSION_ID()
-        );
-
-        managementDao.setMetadata(MANAGEMENT_DAO_METADATA_URI);
-
-        // Revoke the temporary permission
-        managementDao.revoke(
-            deployment.managementDao,
-            address(this),
-            managementDao.SET_METADATA_PERMISSION_ID()
-        );
-
         // Management DAO Multisig Plugin
+
+        // Check the members length
+        if (
+            parameters.managementDaoMembers.length <
+            parameters.managementDaoMinApprovals
+        ) {
+            revert("managementDaoMembers is too small");
+        }
 
         // Prepare the installation
         bytes memory setupData = abi.encode(
             parameters.managementDaoMembers,
             Multisig.MultisigSettings({
                 onlyListed: true,
-                minApprovals: MANAGEMENT_DAO_MIN_APPROVALS
+                minApprovals: parameters.managementDaoMinApprovals
             }),
             IPlugin.TargetConfig({
                 target: deployment.managementDao,
@@ -541,7 +580,10 @@ contract ProtocolFactory {
         );
 
         PluginSetupRef memory pluginSetupRef = PluginSetupRef(
-            PluginRepo.Tag(MULTISIG_PLUGIN_RELEASE, MULTISIG_PLUGIN_BUILD),
+            PluginRepo.Tag(
+                parameters.corePlugins.multisigPlugin.release,
+                parameters.corePlugins.multisigPlugin.build
+            ),
             PluginRepo(deployment.multisigPluginRepo)
         );
         IPluginSetup.PreparedSetupData memory preparedSetupData;
