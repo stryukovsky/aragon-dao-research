@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.17;
 
-import {console} from "forge-std/Script.sol";
 import {IDAOHelper, IPluginRepoHelper, IPSPHelper, IENSHelper} from "./helpers/interfaces.sol";
 
 import {DAO, Action} from "@aragon/osx/core/dao/DAO.sol";
@@ -11,23 +10,16 @@ import {DAORegistry} from "@aragon/osx/framework/dao/DAORegistry.sol";
 import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepoRegistry} from "@aragon/osx/framework/plugin/repo/PluginRepoRegistry.sol";
-import {PlaceholderSetup} from "@aragon/osx/framework/plugin/repo/placeholder/PlaceholderSetup.sol";
 import {PluginSetupProcessor, PluginSetupRef, hashHelpers} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
-import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
+
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
+import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
+import {Multisig} from "@aragon/multisig-plugin/Multisig.sol";
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
-
-import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
-import {Multisig} from "@aragon/multisig-plugin/Multisig.sol";
-import {MultisigSetup} from "@aragon/multisig-plugin/MultisigSetup.sol";
-import {TokenVotingSetup} from "@aragon/token-voting-plugin/TokenVotingSetup.sol";
-import {StagedProposalProcessorSetup} from "@aragon/staged-proposal-processor-plugin/StagedProposalProcessorSetup.sol";
-
-import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @notice This contract orchestrates the full protocol deployment, including the Managing DAO, OSx and Aragon's core plugins.
 /// @dev Given that deploying the factory with all contracts embedded would hit the gas limit, the deployment has two stages:
@@ -52,12 +44,12 @@ contract ProtocolFactory {
 
     /// @notice The struct containing the implementation addresses for OSx
     struct OSxImplementations {
-        DAO daoBase;
-        DAORegistry daoRegistryBase;
-        PluginRepoRegistry pluginRepoRegistryBase;
-        PlaceholderSetup placeholderSetup;
-        ENSSubdomainRegistrar ensSubdomainRegistrar;
-        GlobalExecutor globalExecutor;
+        address daoBase;
+        address daoRegistryBase;
+        address pluginRepoRegistryBase;
+        address placeholderSetup;
+        address ensSubdomainRegistrarBase;
+        address globalExecutor;
     }
 
     /// @notice The struct containing the addresses of the auxiliary factories
@@ -183,7 +175,7 @@ contract ProtocolFactory {
         DAO managementDao = DAO(
             payable(
                 createProxyAndCall(
-                    address(parameters.osxImplementations.daoBase),
+                    parameters.osxImplementations.daoBase,
                     abi.encodeCall(
                         DAO.initialize,
                         (
@@ -257,7 +249,7 @@ contract ProtocolFactory {
 
         // Deploy the dao.eth ENSSubdomainRegistrar
         deployment.daoSubdomainRegistrar = createProxyAndCall(
-            address(parameters.osxImplementations.ensSubdomainRegistrar),
+            parameters.osxImplementations.ensSubdomainRegistrarBase,
             abi.encodeCall(
                 ENSSubdomainRegistrar.initialize,
                 (
@@ -270,7 +262,7 @@ contract ProtocolFactory {
 
         // Deploy the plugin.dao.eth ENSSubdomainRegistrar
         deployment.pluginSubdomainRegistrar = createProxyAndCall(
-            address(parameters.osxImplementations.ensSubdomainRegistrar),
+            parameters.osxImplementations.ensSubdomainRegistrarBase,
             abi.encodeCall(
                 ENSSubdomainRegistrar.initialize,
                 (
@@ -304,7 +296,7 @@ contract ProtocolFactory {
     function prepareOSx() internal {
         // Deploy the DAORegistry proxy
         deployment.daoRegistry = createProxyAndCall(
-            address(parameters.osxImplementations.daoRegistryBase),
+            parameters.osxImplementations.daoRegistryBase,
             abi.encodeCall(
                 DAORegistry.initialize,
                 (
@@ -316,7 +308,7 @@ contract ProtocolFactory {
 
         // Deploy PluginRepoRegistry proxy
         deployment.pluginRepoRegistry = createProxyAndCall(
-            address(parameters.osxImplementations.pluginRepoRegistryBase),
+            parameters.osxImplementations.pluginRepoRegistryBase,
             abi.encodeCall(
                 PluginRepoRegistry.initialize,
                 (
@@ -329,31 +321,30 @@ contract ProtocolFactory {
         // Static contract deployments
         /// @dev Offloaded to separate factories to avoid hitting code size limits.
 
-        deployment.pluginSetupProcessor = address(
-            parameters.helperFactories.pspHelper.deployStatic(
-                deployment.pluginRepoRegistry
-            )
-        );
-        deployment.daoFactory = address(
-            parameters.helperFactories.daoHelper.deployFactory(
+        deployment.pluginSetupProcessor = parameters
+            .helperFactories
+            .pspHelper
+            .deployStatic(deployment.pluginRepoRegistry);
+        deployment.daoFactory = parameters
+            .helperFactories
+            .daoHelper
+            .deployFactory(
                 deployment.daoRegistry,
                 deployment.pluginSetupProcessor
-            )
-        );
-        deployment.pluginRepoFactory = address(
-            parameters.helperFactories.pluginRepoHelper.deployFactory(
-                deployment.pluginRepoRegistry
-            )
-        );
+            );
+        deployment.pluginRepoFactory = parameters
+            .helperFactories
+            .pluginRepoHelper
+            .deployFactory(deployment.pluginRepoRegistry);
 
         // Store the plain implementation addresses
 
-        deployment.globalExecutor = address(
-            parameters.osxImplementations.globalExecutor
-        );
-        deployment.placeholderSetup = address(
-            parameters.osxImplementations.placeholderSetup
-        );
+        deployment.globalExecutor = parameters
+            .osxImplementations
+            .globalExecutor;
+        deployment.placeholderSetup = parameters
+            .osxImplementations
+            .placeholderSetup;
     }
 
     function preparePermissions() internal {

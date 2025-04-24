@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 import {Script, console} from "forge-std/Script.sol";
-import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -13,15 +12,12 @@ import {PlaceholderSetup} from "@aragon/osx/framework/plugin/repo/placeholder/Pl
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/executors/Executor.sol";
 
-import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
-import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import {PluginSetupProcessor} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
-
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
 import {MultisigSetup} from "@aragon/multisig-plugin/MultisigSetup.sol";
 import {TokenVotingSetup} from "@aragon/token-voting-plugin/TokenVotingSetup.sol";
 import {GovernanceERC20} from "@aragon/token-voting-plugin/ERC20/governance/GovernanceERC20.sol";
 import {GovernanceWrappedERC20} from "@aragon/token-voting-plugin/ERC20/governance/GovernanceWrappedERC20.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {StagedProposalProcessorSetup} from "@aragon/staged-proposal-processor-plugin/StagedProposalProcessorSetup.sol";
 
 import {ProtocolFactory} from "../src/ProtocolFactory.sol";
@@ -40,13 +36,14 @@ contract DeployScript is Script {
     string constant DEFAULT_DAO_ENS_DOMAIN = "dao";
     string constant DEFAULT_MANAGEMENT_DAO_SUBDOMAIN = "management";
     string constant DEFAULT_PLUGIN_ENS_SUBDOMAIN = "plugin";
-    string constant MANAGEMENT_DAO_MEMBERS_FILE_NAME = "multisig-members.json";
+    string constant DEFAULT_MANAGEMENT_DAO_MEMBERS_FILE_NAME =
+        "multisig-members.json";
 
     DAO daoBase;
     DAORegistry daoRegistryBase;
     PluginRepoRegistry pluginRepoRegistryBase;
     PlaceholderSetup placeholderSetup;
-    ENSSubdomainRegistrar ensSubdomainRegistrar;
+    ENSSubdomainRegistrar ensSubdomainRegistrarBase;
     GlobalExecutor globalExecutor;
 
     AdminSetup adminSetup;
@@ -63,8 +60,9 @@ contract DeployScript is Script {
     modifier broadcast() {
         uint256 privKey = vm.envUint("DEPLOYMENT_PRIVATE_KEY");
         vm.startBroadcast(privKey);
-        console.log("Deployment wallet:", vm.addr(privKey));
-        console.log("Chain ID:", block.chainid);
+        console.log("OSX version", VERSION);
+        console.log("- Deployment wallet:", vm.addr(privKey));
+        console.log("- Chain ID:", block.chainid);
         console.log();
 
         _;
@@ -73,6 +71,7 @@ contract DeployScript is Script {
     }
 
     function run() public broadcast {
+        // Deploy the raw implementation contracts
         deployOSxImplementations();
         deployHelperFactories();
 
@@ -81,11 +80,10 @@ contract DeployScript is Script {
         deployTokenVotingSetup();
         deployStagedProposalProcessorSetup();
 
-        // Deploy the factory with immutable settings
-        factory = new ProtocolFactory(getFactoryParams());
-        vm.label(address(factory), "Factory");
+        // Deploy the factory with immutable parameters and trigger the protocol deployment
 
-        // Trigger the deployment
+        factory = new ProtocolFactory(getFactoryParams());
+        vm.label(address(factory), "ProtocolFactory");
         factory.deployOnce();
 
         // Done
@@ -102,16 +100,17 @@ contract DeployScript is Script {
         daoRegistryBase = new DAORegistry();
         vm.label(address(daoRegistryBase), "DAORegistry Base");
 
-        // pluginRepo = new PluginRepo();
-
         pluginRepoRegistryBase = new PluginRepoRegistry();
         vm.label(address(pluginRepoRegistryBase), "PluginRepoRegistry Base");
 
         placeholderSetup = new PlaceholderSetup();
         vm.label(address(placeholderSetup), "PlaceholderSetup");
 
-        ensSubdomainRegistrar = new ENSSubdomainRegistrar();
-        vm.label(address(ensSubdomainRegistrar), "ENSSubdomainRegistrar Base");
+        ensSubdomainRegistrarBase = new ENSSubdomainRegistrar();
+        vm.label(
+            address(ensSubdomainRegistrarBase),
+            "ENSSubdomainRegistrar Base"
+        );
 
         globalExecutor = new GlobalExecutor();
         vm.label(address(globalExecutor), "GlobalExecutor");
@@ -171,10 +170,14 @@ contract DeployScript is Script {
         returns (address[] memory result)
     {
         // JSON list of members
+        string memory membersFileName = vm.envOr(
+            "MANAGEMENT_DAO_MEMBERS_FILE_NAME",
+            DEFAULT_MANAGEMENT_DAO_MEMBERS_FILE_NAME
+        );
         string memory path = string.concat(
             vm.projectRoot(),
             "/",
-            MANAGEMENT_DAO_MEMBERS_FILE_NAME
+            membersFileName
         );
         string memory strJson = vm.readFile(path);
 
@@ -201,13 +204,12 @@ contract DeployScript is Script {
     {
         params = ProtocolFactory.DeploymentParameters({
             osxImplementations: ProtocolFactory.OSxImplementations({
-                daoBase: daoBase,
-                daoRegistryBase: daoRegistryBase,
-                // pluginRepo: pluginRepo,
-                pluginRepoRegistryBase: pluginRepoRegistryBase,
-                placeholderSetup: placeholderSetup,
-                ensSubdomainRegistrar: ensSubdomainRegistrar,
-                globalExecutor: globalExecutor
+                daoBase: address(daoBase),
+                daoRegistryBase: address(daoRegistryBase),
+                pluginRepoRegistryBase: address(pluginRepoRegistryBase),
+                placeholderSetup: address(placeholderSetup),
+                ensSubdomainRegistrarBase: address(ensSubdomainRegistrarBase),
+                globalExecutor: address(globalExecutor)
             }),
             helperFactories: ProtocolFactory.HelperFactories({
                 daoHelper: daoHelper,
@@ -313,13 +315,10 @@ contract DeployScript is Script {
     }
 
     function printDeployment() internal view {
-        console.log("Deploying OSX version", VERSION);
-
         ProtocolFactory.Deployment memory deployment = factory.getDeployment();
 
-        console.log();
         console.log("General:");
-        console.log("ProtocolFactory:", address(this));
+        console.log("- ProtocolFactory:", address(this));
 
         console.log();
         console.log("OSx contracts:");
