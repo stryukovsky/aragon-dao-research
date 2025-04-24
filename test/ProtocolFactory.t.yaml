@@ -29,8 +29,8 @@ ProtocolFactory:
       - when: Using the DAOFactory
         then:
           - it: Should deploy a valid DAO and register it
-          - it: The DAO should have the right permissions on itself
-          - it: The DAO should be resolved from the requested ENS subdomain
+          - it: New DAOs should have the right permissions on themselves
+          - it: New DAOs should be resolved from the requested ENS subdomain
 
       - when: Using the PluginRepoFactory
         then:
@@ -41,31 +41,32 @@ ProtocolFactory:
       - when: Using the Management DAO
         then:
           - it: Should be able to publish new core plugin versions
+          - it: Should have a multisig with the given members and settings
 
       - when: Preparing an admin plugin installation
         then:
-          - it: It should complete normally
+          - it: Should complete normally
       - when: Applying an admin plugin installation
         then:
-          - it: It should allow the admin to execute on the DAO
+          - it: Should allow the admin to execute on the DAO
 
       - when: Preparing a multisig plugin installation
         then:
-          - it: It should complete normally
+          - it: Should complete normally
       - when: Applying a multisig plugin installation
         then:
-          - it: It should allow its members to approve and execute on the DAO
+          - it: Should allow its members to approve and execute on the DAO
 
       - when: Preparing a token voting plugin installation
         then:
-          - it: It should complete normally
+          - it: Should complete normally
       - when: Applying a token voting plugin installation
         then:
-          - it: It should allow its members to approve and execute on the DAO
+          - it: Should allow its members to approve and execute on the DAO
 
       - when: Preparing an SPP plugin installation
         then:
-          - it: It should complete normally
+          - it: Should complete normally
       - when: Applying an SPP plugin installation
         then:
-          - it: It should allow its bodies to execute on the DAO
+          - it: Should allow its bodies to execute on the DAO
