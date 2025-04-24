@@ -5,6 +5,7 @@ import {console} from "forge-std/Script.sol";
 import {DAOHelper} from "./helpers/DAOHelper.sol";
 import {PluginRepoHelper} from "./helpers/PluginRepoHelper.sol";
 import {PSPHelper} from "./helpers/PSPHelper.sol";
+import {ENSHelper} from "./helpers/ENSHelper.sol";
 
 import {DAO, Action} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -20,7 +21,7 @@ import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
 
 import {ENSRegistry} from "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
-import {PublicResolver, INameWrapper} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
+import {PublicResolver} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
@@ -37,18 +38,12 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 /// @dev 1) Deploy the raw contracts and store their addresses locally
 /// @dev 2) Deploy the factory with the addresses above and tell it to orchestrate the protocol deployment (this file)
 contract ProtocolFactory {
-    bytes32 private constant ROOT_NODE = 0x0;
-    bytes32 private constant ETH_LABEL_HASH = keccak256("eth");
-    string constant MANAGEMENT_DAO_SUBDOMAIN = "management";
-
     /// @notice The struct containing all the parameters to deploy the protocol
     struct DeploymentParameters {
         // OSx
         OSxImplementations osxImplementations;
-        // Factories
-        DAOHelper daoHelper;
-        PluginRepoHelper pluginRepoHelper;
-        PSPHelper pspHelper;
+        // Helper factories
+        HelperFactories helperFactories;
         // ENS
         EnsParameters ensParameters;
         // Plugins
@@ -69,10 +64,20 @@ contract ProtocolFactory {
         GlobalExecutor globalExecutor;
     }
 
+    /// @notice The struct containing the addresses of the auxiliary factories
+    struct HelperFactories {
+        DAOHelper daoHelper;
+        PluginRepoHelper pluginRepoHelper;
+        PSPHelper pspHelper;
+        ENSHelper ensHelper;
+    }
+
     /// @notice The struct containing the ENS related parameters
     struct EnsParameters {
         /// @notice The root domain to use for DAO's on the DaoRegistry (example: "dao" => dao.eth)
         string daoRootDomain;
+        /// @notice The subdomain to use for the Management DAO (example: "management" => management.dao.eth)
+        string managementDaoSubdomain;
         /// @notice The subdomain name to use for the PluginRepoRegistry (example: "plugin" => plugin.dao.eth)
         string pluginSubdomain;
     }
@@ -239,77 +244,31 @@ contract ProtocolFactory {
     }
 
     function prepareEnsRegistry() internal {
-        // Set up an ENS environment
+        ENSRegistry ensRegistry;
+        PublicResolver publicResolver;
+        bytes32 DAO_ETH_NODE;
+        bytes32 PLUGIN_DAO_ETH_NODE;
 
-        bytes32 ETH_NODE;
-        bytes32 DAO_NODE;
-        bytes32 PLUGIN_DAO_NODE;
-        bytes32 DAO_LABEL_HASH = keccak256(
-            bytes(parameters.ensParameters.daoRootDomain)
-        );
-        bytes32 PLUGIN_DAO_LABEL_HASH = keccak256(
+        // Set up an ENS environment
+        (
+            ensRegistry,
+            publicResolver,
+            DAO_ETH_NODE,
+            PLUGIN_DAO_ETH_NODE
+        ) = parameters.helperFactories.ensHelper.deployStatic(
+            address(deployment.managementDao), // ENSRegistry owner
+            bytes(parameters.ensParameters.daoRootDomain),
             bytes(parameters.ensParameters.pluginSubdomain)
         );
-
-        // ENS Registry and PublicResolver
-        ENSRegistry ensRegistry = new ENSRegistry();
         deployment.ensRegistry = address(ensRegistry);
-
-        deployment.publicResolver = address(
-            new PublicResolver(ensRegistry, INameWrapper(address(0)))
-        );
-
-        // The deployer of ENSRegistry becomes the owner of the root node (0x0).
-
-        // Hold temporary ownership to set the resolver
-
-        ETH_NODE = ensRegistry.setSubnodeOwner(
-            ROOT_NODE,
-            ETH_LABEL_HASH,
-            address(this) // deployment.managementDao
-        );
-
-        DAO_NODE = ensRegistry.setSubnodeOwner(
-            ETH_NODE,
-            DAO_LABEL_HASH,
-            address(this) // deployment.managementDao
-        );
-        ensRegistry.setResolver(DAO_NODE, deployment.publicResolver);
-
-        PLUGIN_DAO_NODE = ensRegistry.setSubnodeOwner(
-            DAO_NODE,
-            PLUGIN_DAO_LABEL_HASH,
-            address(this) // deployment.managementDao
-        );
-        ensRegistry.setResolver(PLUGIN_DAO_NODE, deployment.publicResolver);
-
-        // Set the Management DAO as the final owner (reverse order)
-        ensRegistry.setSubnodeOwner(
-            DAO_NODE,
-            PLUGIN_DAO_LABEL_HASH,
-            deployment.managementDao
-        );
-        ensRegistry.setSubnodeOwner(
-            ETH_NODE,
-            DAO_LABEL_HASH,
-            deployment.managementDao
-        );
-        ensRegistry.setSubnodeOwner(
-            ROOT_NODE,
-            ETH_LABEL_HASH,
-            deployment.managementDao
-        );
+        deployment.publicResolver = address(publicResolver);
 
         // Deploy the dao.eth ENSSubdomainRegistrar
         deployment.daoSubdomainRegistrar = createProxyAndCall(
             address(parameters.osxImplementations.ensSubdomainRegistrar),
             abi.encodeCall(
                 ENSSubdomainRegistrar.initialize,
-                (
-                    IDAO(deployment.managementDao),
-                    ENSRegistry(deployment.ensRegistry),
-                    DAO_NODE
-                )
+                (IDAO(deployment.managementDao), ensRegistry, DAO_ETH_NODE)
             )
         );
 
@@ -320,24 +279,24 @@ contract ProtocolFactory {
                 ENSSubdomainRegistrar.initialize,
                 (
                     IDAO(deployment.managementDao),
-                    ENSRegistry(deployment.ensRegistry),
-                    PLUGIN_DAO_NODE
+                    ensRegistry,
+                    PLUGIN_DAO_ETH_NODE
                 )
             )
         );
 
         // Allow the registrars to register subdomains
 
-        /// @dev Registrars needs to be set as the operator by the effective owner (the Management DAO).
+        /// @dev Registrars need to be set as the "operator" by the effective owner (the Management DAO).
         /// @dev Doing it from the factory wouldn't work.
 
         Action[] memory actions = new Action[](2);
-        actions[0].to = address(ensRegistry);
+        actions[0].to = deployment.ensRegistry;
         actions[0].data = abi.encodeCall(
             ENSRegistry.setApprovalForAll,
             (deployment.daoSubdomainRegistrar, true)
         );
-        actions[1].to = address(ensRegistry);
+        actions[1].to = deployment.ensRegistry;
         actions[1].data = abi.encodeCall(
             ENSRegistry.setApprovalForAll,
             (deployment.pluginSubdomainRegistrar, true)
@@ -375,16 +334,18 @@ contract ProtocolFactory {
         /// @dev Offloaded to separate factories to avoid hitting code size limits.
 
         deployment.pluginSetupProcessor = address(
-            parameters.pspHelper.deployStatic(deployment.pluginRepoRegistry)
+            parameters.helperFactories.pspHelper.deployStatic(
+                deployment.pluginRepoRegistry
+            )
         );
         deployment.daoFactory = address(
-            parameters.daoHelper.deployFactory(
+            parameters.helperFactories.daoHelper.deployFactory(
                 deployment.daoRegistry,
                 deployment.pluginSetupProcessor
             )
         );
         deployment.pluginRepoFactory = address(
-            parameters.pluginRepoHelper.deployFactory(
+            parameters.helperFactories.pluginRepoHelper.deployFactory(
                 deployment.pluginRepoRegistry
             )
         );
@@ -545,7 +506,7 @@ contract ProtocolFactory {
         DAORegistry(deployment.daoRegistry).register(
             managementDao,
             address(this),
-            MANAGEMENT_DAO_SUBDOMAIN
+            parameters.ensParameters.managementDaoSubdomain
         );
 
         // Revoke the temporary permission

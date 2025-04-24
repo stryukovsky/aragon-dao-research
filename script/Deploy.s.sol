@@ -28,6 +28,7 @@ import {ProtocolFactory} from "../src/ProtocolFactory.sol";
 import {DAOHelper} from "../src/helpers/DAOHelper.sol";
 import {PluginRepoHelper} from "../src/helpers/PluginRepoHelper.sol";
 import {PSPHelper} from "../src/helpers/PSPHelper.sol";
+import {ENSHelper} from "../src/helpers/ENSHelper.sol";
 
 /// @notice This local script triggers a full deploy of OSx, along with the core Aragon plugins and the Management DAO
 /// @dev No privileged actions are performed within this file. All of them take place within the ProtocolFactory contract, on-chain.
@@ -37,6 +38,7 @@ import {PSPHelper} from "../src/helpers/PSPHelper.sol";
 contract DeployScript is Script {
     string constant VERSION = "1.4";
     string constant DEFAULT_DAO_ENS_DOMAIN = "dao";
+    string constant DEFAULT_MANAGEMENT_DAO_SUBDOMAIN = "management";
     string constant DEFAULT_PLUGIN_ENS_SUBDOMAIN = "plugin";
     string constant MANAGEMENT_DAO_MEMBERS_FILE_NAME = "multisig-members.json";
 
@@ -56,6 +58,7 @@ contract DeployScript is Script {
     DAOHelper daoHelper;
     PluginRepoHelper pluginRepoHelper;
     PSPHelper pspHelper;
+    ENSHelper ensHelper;
 
     modifier broadcast() {
         uint256 privKey = vm.envUint("DEPLOYMENT_PRIVATE_KEY");
@@ -71,7 +74,7 @@ contract DeployScript is Script {
 
     function run() public broadcast {
         deployOSxImplementations();
-        deployCoreHelpers();
+        deployHelperFactories();
 
         deployAdminSetup();
         deployMultisigSetup();
@@ -117,7 +120,7 @@ contract DeployScript is Script {
         /// @dev These contracts will be deployed by the DAOHelper, the PluginRepoHelper and the PSPHelper.
     }
 
-    function deployCoreHelpers() internal {
+    function deployHelperFactories() internal {
         daoHelper = new DAOHelper();
         vm.label(address(daoHelper), "DAOHelper");
 
@@ -126,6 +129,9 @@ contract DeployScript is Script {
 
         pspHelper = new PSPHelper();
         vm.label(address(pspHelper), "PSPHelper");
+
+        ensHelper = new ENSHelper();
+        vm.label(address(ensHelper), "ENSHelper");
     }
 
     function deployAdminSetup() internal {
@@ -188,44 +194,6 @@ contract DeployScript is Script {
         }
     }
 
-    /*
-    function readMetadataUris() internal view returns () {
-        result = ProtocolFactory.MetadataUris({
-            adminPluginReleaseMetadata: vm.envOr(
-                "ADMIN_PLUGIN_RELEASE_METADATA_URI",
-                string("ipfs://")
-            ),
-            adminPluginBuildMetadata: vm.envOr(
-                "ADMIN_PLUGIN_BUILD_METADATA_URI",
-                string("ipfs://")
-            ),
-            multisigPluginReleaseMetadata: vm.envOr(
-                "MULTISIG_PLUGIN_RELEASE_METADATA_URI",
-                string("ipfs://")
-            ),
-            multisigPluginBuildMetadata: vm.envOr(
-                "MULTISIG_PLUGIN_BUILD_METADATA_URI",
-                string("ipfs://")
-            ),
-            tokenVotingPluginReleaseMetadata: vm.envOr(
-                "TOKEN_VOTING_PLUGIN_RELEASE_METADATA_URI",
-                string("ipfs://")
-            ),
-            tokenVotingPluginBuildMetadata: vm.envOr(
-                "TOKEN_VOTING_PLUGIN_BUILD_METADATA_URI",
-                string("ipfs://")
-            ),
-            stagedProposalProcessorPluginReleaseMetadata: vm.envOr(
-                "STAGED_PROPOSAL_PROCESSOR_PLUGIN_RELEASE_METADATA_URI",
-                string("ipfs://")
-            ),
-            stagedProposalProcessorPluginBuildMetadata: vm.envOr(
-                "STAGED_PROPOSAL_PROCESSOR_PLUGIN_BUILD_METADATA_URI",
-                string("ipfs://")
-            )
-        });
-        }*/
-
     function getFactoryParams()
         internal
         view
@@ -241,13 +209,20 @@ contract DeployScript is Script {
                 ensSubdomainRegistrar: ensSubdomainRegistrar,
                 globalExecutor: globalExecutor
             }),
-            daoHelper: daoHelper,
-            pluginRepoHelper: pluginRepoHelper,
-            pspHelper: pspHelper,
+            helperFactories: ProtocolFactory.HelperFactories({
+                daoHelper: daoHelper,
+                pluginRepoHelper: pluginRepoHelper,
+                pspHelper: pspHelper,
+                ensHelper: ensHelper
+            }),
             ensParameters: ProtocolFactory.EnsParameters({
                 daoRootDomain: vm.envOr(
                     "DAO_ENS_DOMAIN",
                     DEFAULT_DAO_ENS_DOMAIN
+                ),
+                managementDaoSubdomain: vm.envOr(
+                    "MANAGEMENT_DAO_SUBDOMAIN",
+                    DEFAULT_MANAGEMENT_DAO_SUBDOMAIN
                 ),
                 pluginSubdomain: vm.envOr(
                     "PLUGIN_ENS_SUBDOMAIN",

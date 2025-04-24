@@ -6,4 +6,8 @@ import {AragonTest} from "./base/AragonTest.sol";
 
 contract FactoryTest is AragonTest {
     function setUp() public {}
+
+    function test_DeployEvent() public {
+        vm.skip(true);
+    }
 }

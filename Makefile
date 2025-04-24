@@ -20,7 +20,7 @@ TEST_SOURCE_FILES := $(wildcard test/*.t.yaml test/integration/*.t.yaml)
 TEST_TREE_FILES := $(TEST_SOURCE_FILES:.t.yaml=.tree)
 DEPLOYMENT_ADDRESS := $(shell cast wallet address --private-key $(DEPLOYMENT_PRIVATE_KEY) 2>/dev/null || echo "NOTE: DEPLOYMENT_PRIVATE_KEY from .env is not set" > /dev/stderr)
 
-DEPLOYMENT_LOG_FILE=deployment-$(patsubst "%",%,$(PRODNET_NETWORK))-$(shell date +"%y-%m-%d-%H-%M").log
+DEPLOYMENT_LOG_FILE=deployment-$(patsubst "%",%,$(NETWORK_NAME))-$(shell date +"%y-%m-%d-%H-%M").log
 
 # Check values
 ifeq ($(filter $(subst ",,$(NETWORK_NAME)),$(AVAILABLE_NETWORKS)),)
@@ -28,11 +28,11 @@ ifeq ($(filter $(subst ",,$(NETWORK_NAME)),$(AVAILABLE_NETWORKS)),)
 endif
 
 # Conditional assignments
-ifneq ($(filter $(NETWORK_NAME), $(ETHERSCAN_NETWORKS)),)
+ifneq ($(filter $(subst ",,$(NETWORK_NAME)), $(ETHERSCAN_NETWORKS)),)
 	ETHERSCAN_API_KEY_PARAM := --etherscan-api-key $(ETHERSCAN_API_KEY)
 endif
 
-ifneq ($(filter $(NETWORK_NAME), $(BLOCKSCOUT_NETWORKS)),)
+ifneq ($(filter $(subst ",,$(NETWORK_NAME)), $(BLOCKSCOUT_NETWORKS)),)
 	VERIFIER_TYPE_PARAM = --verifier blockscout
 	VERIFIER_URL_PARAM = --verifier-url "https://$(BLOCKSCOUT_HOST_NAME)/api\?"
 endif
