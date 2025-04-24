@@ -318,13 +318,19 @@ contract DeployScript is Script {
         ProtocolFactory.Deployment memory deployment = factory.getDeployment();
 
         console.log();
-        console.log("Static contracts:");
+        console.log("General:");
+        console.log("ProtocolFactory:", address(this));
+
+        console.log();
+        console.log("OSx contracts:");
         console.log("- DAOFactory", deployment.daoFactory);
         console.log("- PluginRepoFactory", deployment.pluginRepoFactory);
         console.log("- PluginSetupProcessor", deployment.pluginSetupProcessor);
 
         console.log();
-        console.log("Proxy contracts:");
+        console.log("Registries (proxy):");
+        console.log("- DAORegistry", deployment.daoRegistry);
+        console.log("- PluginRepoRegistry", deployment.pluginRepoRegistry);
 
         console.log();
         console.log("Protocol helpers:");
@@ -335,23 +341,34 @@ contract DeployScript is Script {
         );
 
         console.log();
-        console.log("Implementations:");
-        // console.log("- DAO", deployment.dao);
-        console.log("- DAORegistry", deployment.daoRegistry);
-        // console.log("- PluginRepo", deployment.pluginRepo);
-        console.log("- PluginRepoRegistry", deployment.pluginRepoRegistry);
-        console.log("- PlaceholderSetup", deployment.placeholderSetup);
+        console.log("ENS:");
+        console.log("- ENSRegistry", deployment.ensRegistry);
+        console.log("- PublicResolver", deployment.publicResolver);
         console.log(
-            "- DAO ENSSubdomainRegistrar",
+            "- ENSSubdomainRegistrar (DAOs)",
             deployment.daoSubdomainRegistrar
         );
         console.log(
-            "- Plugin ENSSubdomainRegistrar",
+            "- ENSSubdomainRegistrar (plugins)",
             deployment.pluginSubdomainRegistrar
         );
-        console.log("- GlobalExecutor", deployment.globalExecutor);
 
         console.log();
         console.log("Plugin repositories:");
+        console.log("- Admin PluginRepo", deployment.adminPluginRepo);
+        console.log("- Multisig PluginRepo", deployment.multisigPluginRepo);
+        console.log(
+            "- TokenVoting PluginRepo",
+            deployment.tokenVotingPluginRepo
+        );
+        console.log(
+            "- SPP PluginRepo",
+            deployment.stagedProposalProcessorPluginRepo
+        );
+
+        console.log();
+        console.log("Other OSx contracts:");
+        console.log("- GlobalExecutor", deployment.globalExecutor);
+        console.log("- PlaceholderSetup", deployment.placeholderSetup);
     }
 }

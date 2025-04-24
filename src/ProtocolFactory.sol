@@ -2,10 +2,7 @@
 pragma solidity ^0.8.17;
 
 import {console} from "forge-std/Script.sol";
-import {DAOHelper} from "./helpers/DAOHelper.sol";
-import {PluginRepoHelper} from "./helpers/PluginRepoHelper.sol";
-import {PSPHelper} from "./helpers/PSPHelper.sol";
-import {ENSHelper} from "./helpers/ENSHelper.sol";
+import {IDAOHelper, IPluginRepoHelper, IPSPHelper, IENSHelper} from "./helpers/interfaces.sol";
 
 import {DAO, Action} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -20,8 +17,7 @@ import {Executor as GlobalExecutor} from "@aragon/osx-commons-contracts/src/exec
 import {IPlugin} from "@aragon/osx-commons-contracts/src/plugin/IPlugin.sol";
 import {IPluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/IPluginSetup.sol";
 
-import {ENSRegistry} from "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
-import {PublicResolver} from "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
+import {ENS} from "@ensdomains/ens-contracts/contracts/registry/ENS.sol";
 import {ENSSubdomainRegistrar} from "@aragon/osx/framework/utils/ens/ENSSubdomainRegistrar.sol";
 
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
@@ -66,10 +62,10 @@ contract ProtocolFactory {
 
     /// @notice The struct containing the addresses of the auxiliary factories
     struct HelperFactories {
-        DAOHelper daoHelper;
-        PluginRepoHelper pluginRepoHelper;
-        PSPHelper pspHelper;
-        ENSHelper ensHelper;
+        IDAOHelper daoHelper;
+        IPluginRepoHelper pluginRepoHelper;
+        IPSPHelper pspHelper;
+        IENSHelper ensHelper;
     }
 
     /// @notice The struct containing the ENS related parameters
@@ -244,15 +240,13 @@ contract ProtocolFactory {
     }
 
     function prepareEnsRegistry() internal {
-        ENSRegistry ensRegistry;
-        PublicResolver publicResolver;
         bytes32 DAO_ETH_NODE;
         bytes32 PLUGIN_DAO_ETH_NODE;
 
         // Set up an ENS environment
         (
-            ensRegistry,
-            publicResolver,
+            deployment.ensRegistry,
+            deployment.publicResolver,
             DAO_ETH_NODE,
             PLUGIN_DAO_ETH_NODE
         ) = parameters.helperFactories.ensHelper.deployStatic(
@@ -260,15 +254,17 @@ contract ProtocolFactory {
             bytes(parameters.ensParameters.daoRootDomain),
             bytes(parameters.ensParameters.pluginSubdomain)
         );
-        deployment.ensRegistry = address(ensRegistry);
-        deployment.publicResolver = address(publicResolver);
 
         // Deploy the dao.eth ENSSubdomainRegistrar
         deployment.daoSubdomainRegistrar = createProxyAndCall(
             address(parameters.osxImplementations.ensSubdomainRegistrar),
             abi.encodeCall(
                 ENSSubdomainRegistrar.initialize,
-                (IDAO(deployment.managementDao), ensRegistry, DAO_ETH_NODE)
+                (
+                    IDAO(deployment.managementDao),
+                    ENS(deployment.ensRegistry),
+                    DAO_ETH_NODE
+                )
             )
         );
 
@@ -279,7 +275,7 @@ contract ProtocolFactory {
                 ENSSubdomainRegistrar.initialize,
                 (
                     IDAO(deployment.managementDao),
-                    ensRegistry,
+                    ENS(deployment.ensRegistry),
                     PLUGIN_DAO_ETH_NODE
                 )
             )
@@ -293,12 +289,12 @@ contract ProtocolFactory {
         Action[] memory actions = new Action[](2);
         actions[0].to = deployment.ensRegistry;
         actions[0].data = abi.encodeCall(
-            ENSRegistry.setApprovalForAll,
+            ENS.setApprovalForAll,
             (deployment.daoSubdomainRegistrar, true)
         );
         actions[1].to = deployment.ensRegistry;
         actions[1].data = abi.encodeCall(
-            ENSRegistry.setApprovalForAll,
+            ENS.setApprovalForAll,
             (deployment.pluginSubdomainRegistrar, true)
         );
 

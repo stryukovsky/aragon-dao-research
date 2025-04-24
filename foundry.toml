@@ -8,5 +8,5 @@ fs_permissions = [{ access = "read", path = "./multisig-members.json" }]
 evm_version = "cancun"
 optimizer = true
 optimizer-runs = 200
-solc = "0.8.23"
-via_ir = false
+solc = "0.8.28"
+via_ir = true
