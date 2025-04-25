@@ -10,7 +10,7 @@ import {DummySetup} from "./helpers/DummySetup.sol";
 
 // OSx Imports
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {DAO, Action} from "@aragon/osx/core/dao/DAO.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
 import {DAORegistry} from "@aragon/osx/framework/dao/DAORegistry.sol";
@@ -1132,9 +1132,105 @@ contract ProtocolFactoryTest is AragonTest {
         external
         givenAProtocolDeployment
     {
-        // It Should be able to publish new core plugin versions
+        Multisig multisig = Multisig(deployment.managementDaoMultisig);
+        PluginRepo adminRepo = PluginRepo(deployment.adminPluginRepo);
+
         // It Should have a multisig with the given members and settings
-        vm.skip(true);
+        assertEq(
+            multisig.addresslistLength(),
+            mgmtDaoMembers.length,
+            "Member count mismatch"
+        );
+        for (uint i = 0; i < mgmtDaoMembers.length; i++) {
+            assertTrue(
+                multisig.isListed(mgmtDaoMembers[i]),
+                "Member address mismatch"
+            );
+        }
+        (bool onlyListed, uint16 minApprovals) = multisig.multisigSettings();
+        assertTrue(onlyListed, "OnlyListed should be true");
+        assertEq(
+            minApprovals,
+            uint16(deploymentParams.managementDao.minApprovals),
+            "Min approvals mismatch"
+        );
+
+        // It Should be able to publish new core plugin versions (via multisig)
+        DummySetup dummySetup = new DummySetup();
+        uint8 targetRelease = deploymentParams.corePlugins.adminPlugin.release;
+        bytes memory buildMeta = bytes("ipfs://new-admin-build");
+        bytes memory releaseMeta = bytes("ipfs://new-admin-release"); // Usually same for build
+        bytes memory actionData = abi.encodeCall(
+            PluginRepo.createVersion,
+            (
+                targetRelease, // target release
+                address(dummySetup), // new setup implementation
+                buildMeta,
+                releaseMeta
+            )
+        );
+
+        Action[] memory actions = new Action[](1);
+        actions[0] = Action({
+            to: deployment.adminPluginRepo,
+            value: 0,
+            data: actionData
+        });
+
+        // Move 1 block forward to avoid ProposalCreationForbidden()
+        vm.roll(block.number + 1);
+
+        // Create proposal (Alice proposes)
+        vm.prank(alice);
+        uint256 proposalId = multisig.createProposal(
+            bytes("ipfs://prop-new-admin-version"),
+            actions,
+            0, // startdate
+            uint64(block.timestamp + 100), // enddate
+            bytes("")
+        );
+        // Move 1 block forward to avoid missing the snapshot block
+        vm.roll(block.number + 1);
+
+        assertTrue(multisig.canApprove(proposalId, alice), "Cannot approve");
+        vm.prank(alice);
+        multisig.approve(proposalId, false);
+
+        // Approve (Bob approves, reaching minApprovals = 2)
+        vm.prank(bob);
+        multisig.approve(proposalId, false);
+
+        uint256 buildCountBefore = adminRepo.buildCount(targetRelease);
+
+        // Execute (Carol executes)
+        assertTrue(
+            multisig.canExecute(proposalId),
+            "Proposal should be executable"
+        );
+        vm.prank(carol);
+        multisig.execute(proposalId);
+
+        uint256 buildCountAfter = adminRepo.buildCount(targetRelease);
+        assertEq(
+            buildCountBefore + 1,
+            buildCountAfter,
+            "Should have increased hte buildCount"
+        );
+
+        // Verify new version
+        PluginRepo.Version memory latestVersion = adminRepo.getLatestVersion(
+            targetRelease
+        );
+        assertEq(
+            latestVersion.pluginSetup,
+            address(dummySetup),
+            "New version setup mismatch"
+        );
+        assertEq(
+            latestVersion.buildMetadata,
+            buildMeta,
+            "New version build meta mismatch"
+        );
     }
 
     function test_WhenPreparingAnAdminPluginInstallation()
