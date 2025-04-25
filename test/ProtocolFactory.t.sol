@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Test, console} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {ProtocolFactoryBuilder} from "./helpers/ProtocolFactoryBuilder.sol";
 import {ProtocolFactory} from "../src/ProtocolFactory.sol";
@@ -278,39 +279,17 @@ contract ProtocolFactoryTest is AragonTest {
         // Check DAORegistry/PluginRepoRegistry permissions elsewhere if needed
 
         // 7. Check Implementation Address (optional sanity check)
-        address daoRegImpl = address(
-            uint160(
-                uint256(
-                    vm.load(
-                        deployment.daoSubdomainRegistrar,
-                        bytes32(
-                            uint256(
-                                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
-                            )
-                        )
-                    )
-                )
-            )
-        ); // ERC1967 Impl Slot
+        address daoRegImpl = getImplementation(
+            deployment.daoSubdomainRegistrar
+        );
         assertEq(
             daoRegImpl,
             deploymentParams.osxImplementations.ensSubdomainRegistrarBase,
             "DAO Registrar Impl mismatch"
         );
-        address pluginRegImpl = address(
-            uint160(
-                uint256(
-                    vm.load(
-                        deployment.pluginSubdomainRegistrar,
-                        bytes32(
-                            uint256(
-                                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
-                            )
-                        )
-                    )
-                )
-            )
-        ); // ERC1967 Impl Slot
+        address pluginRegImpl = getImplementation(
+            deployment.pluginSubdomainRegistrar
+        );
         assertEq(
             pluginRegImpl,
             deploymentParams.osxImplementations.ensSubdomainRegistrarBase,
@@ -879,7 +858,133 @@ contract ProtocolFactoryTest is AragonTest {
 
     function test_WhenCallingGetDeployment() external givenAProtocolDeployment {
         // It Should return the right values
-        vm.skip(true);
+        assertEq(
+            keccak256(abi.encode(deployment)),
+            keccak256(abi.encode(factory.getDeployment())),
+            "Deployment addresses mismatch"
+        );
+
+        // Sanity checks
+        assertNotEq(deployment.daoFactory, address(0));
+
+        assertNotEq(deployment.pluginRepoFactory, address(0));
+        assertNotEq(
+            PluginRepoFactory(deployment.pluginRepoFactory).pluginRepoBase(),
+            address(0)
+        );
+
+        assertNotEq(deployment.pluginSetupProcessor, address(0));
+        assertEq(
+            address(
+                PluginSetupProcessor(deployment.pluginSetupProcessor)
+                    .repoRegistry()
+            ),
+            deployment.pluginRepoRegistry
+        );
+        assertEq(
+            deployment.globalExecutor,
+            deploymentParams.osxImplementations.globalExecutor
+        );
+        assertEq(
+            deployment.placeholderSetup,
+            deploymentParams.osxImplementations.placeholderSetup
+        );
+
+        assertNotEq(deployment.daoRegistry, address(0));
+        assertEq(
+            address(DAORegistry(deployment.daoRegistry).subdomainRegistrar()),
+            deployment.daoSubdomainRegistrar
+        );
+        assertNotEq(deployment.pluginRepoRegistry, address(0));
+        assertEq(
+            address(
+                PluginRepoRegistry(deployment.pluginRepoRegistry)
+                    .subdomainRegistrar()
+            ),
+            deployment.pluginSubdomainRegistrar
+        );
+        assertNotEq(deployment.managementDao, address(0));
+        assertEq(
+            getImplementation(deployment.managementDao),
+            deploymentParams.osxImplementations.daoBase
+        );
+        assertNotEq(deployment.managementDaoMultisig, address(0));
+
+        assertNotEq(deployment.ensRegistry, address(0));
+        assertNotEq(deployment.daoSubdomainRegistrar, address(0));
+        assertEq(
+            address(
+                ENSSubdomainRegistrar(deployment.daoSubdomainRegistrar).ens()
+            ),
+            deployment.ensRegistry
+        );
+        assertEq(
+            address(
+                ENSSubdomainRegistrar(deployment.daoSubdomainRegistrar)
+                    .resolver()
+            ),
+            deployment.publicResolver
+        );
+        assertNotEq(deployment.pluginSubdomainRegistrar, address(0));
+        assertEq(
+            address(
+                ENSSubdomainRegistrar(deployment.pluginSubdomainRegistrar).ens()
+            ),
+            deployment.ensRegistry
+        );
+        assertEq(
+            address(
+                ENSSubdomainRegistrar(deployment.pluginSubdomainRegistrar)
+                    .resolver()
+            ),
+            deployment.publicResolver
+        );
+        assertNotEq(deployment.publicResolver, address(0));
+
+        assertNotEq(deployment.adminPluginRepo, address(0));
+        assertEq(PluginRepo(deployment.adminPluginRepo).latestRelease(), 1);
+        assertEq(
+            PluginRepo(deployment.adminPluginRepo)
+                .getLatestVersion(1)
+                .pluginSetup,
+            address(deploymentParams.corePlugins.adminPlugin.pluginSetup)
+        );
+        assertNotEq(deployment.multisigPluginRepo, address(0));
+        assertEq(PluginRepo(deployment.multisigPluginRepo).latestRelease(), 1);
+        assertEq(
+            PluginRepo(deployment.multisigPluginRepo)
+                .getLatestVersion(1)
+                .pluginSetup,
+            address(deploymentParams.corePlugins.multisigPlugin.pluginSetup)
+        );
+        assertNotEq(deployment.tokenVotingPluginRepo, address(0));
+        assertEq(
+            PluginRepo(deployment.tokenVotingPluginRepo).latestRelease(),
+            1
+        );
+        assertEq(
+            PluginRepo(deployment.tokenVotingPluginRepo)
+                .getLatestVersion(1)
+                .pluginSetup,
+            address(deploymentParams.corePlugins.tokenVotingPlugin.pluginSetup)
+        );
+        assertNotEq(deployment.stagedProposalProcessorPluginRepo, address(0));
+        assertEq(
+            PluginRepo(deployment.stagedProposalProcessorPluginRepo)
+                .latestRelease(),
+            1
+        );
+        assertEq(
+            PluginRepo(deployment.stagedProposalProcessorPluginRepo)
+                .getLatestVersion(1)
+                .pluginSetup,
+            address(
+                deploymentParams
+                    .corePlugins
+                    .stagedProposalProcessorPlugin
+                    .pluginSetup
+            )
+        );
     }
 
     function test_WhenUsingTheDAOFactory() external givenAProtocolDeployment {
@@ -970,5 +1075,25 @@ contract ProtocolFactoryTest is AragonTest {
     {
         // It should allow its bodies to execute on the DAO
         vm.skip(true);
+    }
+
+    // Helpers
+
+    function getImplementation(address proxy) private returns (address) {
+        return
+            address(
+                uint160(
+                    uint256(
+                        vm.load(
+                            proxy,
+                            bytes32(
+                                uint256(
+                                    0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+                                )
+                            )
+                        )
+                    )
+                )
+            );
     }
 }
