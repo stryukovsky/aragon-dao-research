@@ -2,9 +2,9 @@
 pragma solidity ^0.8.23;
 
 import {Test, console} from "forge-std/Test.sol";
-import {AragonTest} from "./base/AragonTest.sol";
+import {AragonTest} from "./helpers/AragonTest.sol";
+import {ProtocolFactoryBuilder} from "./helpers/ProtocolFactoryBuilder.sol";
 import {ProtocolFactory} from "../src/ProtocolFactory.sol";
-import {ProtocolFactoryBuilder} from "./builders/ProtocolFactoryBuilder.sol";
 
 contract ProtocolFactoryTest is AragonTest {
     ProtocolFactoryBuilder builder;
@@ -48,6 +48,9 @@ contract ProtocolFactoryTest is AragonTest {
     }
 
     modifier givenAProtocolDeployment() {
+        factory.deployOnce();
+        deployment = factory.getDeployment();
+
         _;
     }
 

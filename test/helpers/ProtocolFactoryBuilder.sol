@@ -71,7 +71,6 @@ contract ProtocolFactoryBuilder is Test {
             subdomain: "spp-test"
         });
 
-    address[] EMPTY_ARRAY = new address[](0);
     ProtocolFactory.ManagementDaoParameters managementDaoParams =
         ProtocolFactory.ManagementDaoParameters({
             metadataUri: "ipfs://mgmt-dao-metadata",
@@ -278,6 +277,23 @@ contract ProtocolFactoryBuilder is Test {
         internal
         returns (ProtocolFactory.DeploymentParameters memory params)
     {
+        address[] memory mgmtDaoMembers;
+        if (managementDaoParams.members.length > 0) {
+            mgmtDaoMembers = managementDaoParams.members;
+        } else {
+            // Set 3 members when empty
+            mgmtDaoMembers = new address[](3);
+            mgmtDaoMembers[0] = address(
+                0x0000000000111111111122222222223333333333
+            );
+            mgmtDaoMembers[1] = address(
+                0x1111111111222222222233333333334444444444
+            );
+            mgmtDaoMembers[2] = address(
+                0x2222222222333333333344444444445555555555
+            );
+        }
+
         params = ProtocolFactory.DeploymentParameters({
             osxImplementations: ProtocolFactory.OSxImplementations({
                 daoBase: address(new DAO()),
