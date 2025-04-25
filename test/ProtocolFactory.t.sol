@@ -827,6 +827,54 @@ contract ProtocolFactoryTest is AragonTest {
             "StagedProposalProcessor plugin subdomain mismatch"
         );
         hash1 = hash2;
+
+        // 13
+        factory = builder.withManagementDaoMetadataUri("meta-1234").build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().managementDao.metadataUri,
+            "meta-1234",
+            "Management DAO metadataUri mismatch"
+        );
+        hash1 = hash2;
+
+        // 14
+        factory = builder.withManagementDaoMembers(new address[](1)).build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().managementDao.members.length,
+            1,
+            "Management DAO members list mismatch"
+        );
+        hash1 = hash2;
+
+        // 15
+        factory = builder.withManagementDaoMinApprovals(10).build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().managementDao.minApprovals,
+            10,
+            "Management DAO minApprovals mismatch"
+        );
+        hash1 = hash2;
     }
 
     function test_WhenCallingGetDeployment() external givenAProtocolDeployment {
