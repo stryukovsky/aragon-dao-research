@@ -3,10 +3,11 @@
 Below is the graphical definition of the contract tests implemented on [the test folder](./test)
 
 ```
-ProtocolFactory
+ProtocolFactoryTest
 ├── When Deploying the ProtocolFactory
 │   ├── It getParameters should return the exact same parameters as provided to the constructor
-│   └── It Parameters should remain immutable after deployOnce is invoked
+│   ├── It Parameters should remain immutable after deployOnce is invoked
+│   └── It getDeployment should return empty values
 ├── When Invoking deployOnce
 │   ├── Given No prior deployment on the factory
 │   │   ├── It Should emit an event with the factory address

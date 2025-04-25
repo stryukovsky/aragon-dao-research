@@ -3,6 +3,7 @@ ProtocolFactoryTest:
     then:
       - it: getParameters should return the exact same parameters as provided to the constructor
       - it: Parameters should remain immutable after deployOnce is invoked
+      - it: getDeployment should return empty values
 
   - when: Invoking deployOnce
     and:
