@@ -988,10 +988,66 @@ contract ProtocolFactoryTest is AragonTest {
     }
 
     function test_WhenUsingTheDAOFactory() external givenAProtocolDeployment {
+        DAOFactory daoFactory = DAOFactory(deployment.daoFactory);
+        DAORegistry daoRegistry = DAORegistry(deployment.daoRegistry);
+        ENS ens = ENS(deployment.ensRegistry);
+        IResolver resolver = IResolver(deployment.publicResolver);
+
+        string memory daoSubdomain = "testdao";
+        string memory metadataUri = "ipfs://dao-meta";
+        DAOFactory.DAOSettings memory daoSettings = DAOFactory.DAOSettings({
+            trustedForwarder: address(0),
+            daoURI: "ipfs://dao-uri",
+            metadata: bytes(metadataUri),
+            subdomain: daoSubdomain
+        });
+        DAOFactory.PluginSettings[]
+            memory plugins = new DAOFactory.PluginSettings[](0);
+
         // It Should deploy a valid DAO and register it
+        (DAO newDao, ) = daoFactory.createDao(daoSettings, plugins);
+        assertNotEq(address(newDao), address(0), "DAO address is zero");
+        assertTrue(
+            daoRegistry.entries(address(newDao)),
+            "DAO not registered in registry"
+        );
+
         // It New DAOs should have the right permissions on themselves
+        // By default, DAOFactory grants ROOT to the DAO itself
+        assertTrue(
+            newDao.hasPermission(
+                address(newDao),
+                address(newDao),
+                newDao.ROOT_PERMISSION_ID(),
+                ""
+            ),
+            "DAO does not have ROOT on itself"
+        );
+
         // It New DAOs should be resolved from the requested ENS subdomain
-        vm.skip(true);
+        string memory fullDomain = string.concat(
+            daoSubdomain,
+            ".",
+            deploymentParams.ensParameters.daoRootDomain,
+            ".eth"
+        );
+        bytes32 node = vm.ensNamehash(fullDomain);
+
+        assertEq(
+            ens.owner(node),
+            deployment.daoSubdomainRegistrar,
+            "ENS owner mismatch"
+        );
+        assertEq(
+            ens.resolver(node),
+            deployment.publicResolver,
+            "ENS resolver mismatch"
+        );
+        assertEq(
+            resolver.addr(node),
+            address(newDao),
+            "Resolver addr mismatch"
+        );
     }
 
     function test_WhenUsingThePluginRepoFactory()
