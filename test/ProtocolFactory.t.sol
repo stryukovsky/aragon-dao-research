@@ -2,10 +2,11 @@
 pragma solidity ^0.8.23;
 
 import {Test, console} from "forge-std/Test.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {ProtocolFactoryBuilder} from "./helpers/ProtocolFactoryBuilder.sol";
 import {ProtocolFactory} from "../src/ProtocolFactory.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {DummySetup} from "./helpers/DummySetup.sol";
 
 // OSx Imports
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -1054,10 +1055,77 @@ contract ProtocolFactoryTest is AragonTest {
         external
         givenAProtocolDeployment
     {
+        PluginRepoFactory repoFactory = PluginRepoFactory(
+            deployment.pluginRepoFactory
+        );
+        PluginRepoRegistry repoRegistry = PluginRepoRegistry(
+            deployment.pluginRepoRegistry
+        );
+        ENS ens = ENS(deployment.ensRegistry);
+        IResolver resolver = IResolver(deployment.publicResolver);
+
+        string memory repoSubdomain = "testplugin";
+        address maintainer = alice; // Let Alice be the maintainer
+
         // It Should deploy a valid PluginRepo and register it
+        address newRepoAddress = address(
+            repoFactory.createPluginRepo(repoSubdomain, maintainer)
+        );
+        assertTrue(newRepoAddress != address(0), "Repo address is zero");
+        assertTrue(
+            repoRegistry.entries(newRepoAddress),
+            "Repo not registered in registry"
+        );
+
+        PluginRepo newRepo = PluginRepo(newRepoAddress);
+        assertTrue(
+            newRepo.isGranted(
+                newRepoAddress,
+                maintainer,
+                newRepo.MAINTAINER_PERMISSION_ID(),
+                ""
+            ),
+            "Maintainer does not have MAINTAINER_PERMISSION on the plugin repo"
+        );
+
         // It The maintainer can publish new versions
+        DummySetup dummySetup = new DummySetup();
+        vm.prank(maintainer);
+        newRepo.createVersion(
+            1,
+            address(dummySetup),
+            bytes("ipfs://build"),
+            bytes("ipfs://release")
+        );
+        PluginRepo.Version memory latestVersion = newRepo.getLatestVersion(1);
+        assertEq(
+            latestVersion.pluginSetup,
+            address(dummySetup),
+            "Published version mismatch"
+        );
+
         // It The plugin repo should be resolved from the requested ENS subdomain
-        vm.skip(true);
+        string memory fullDomain = string.concat(
+            repoSubdomain,
+            ".",
+            deploymentParams.ensParameters.pluginSubdomain,
+            ".",
+            deploymentParams.ensParameters.daoRootDomain,
+            ".eth"
+        );
+        bytes32 node = vm.ensNamehash(fullDomain);
+
+        assertEq(
+            ens.owner(node),
+            deployment.pluginSubdomainRegistrar,
+            "ENS owner mismatch"
+        );
+        assertEq(
+            ens.resolver(node),
+            deployment.publicResolver,
+            "ENS resolver mismatch"
+        );
+        assertEq(resolver.addr(node), newRepoAddress, "Resolver addr mismatch");
     }
 
     function test_WhenUsingTheManagementDAO()
