@@ -21,7 +21,17 @@ address constant ADDRESS_ZERO = address(0x0);
 address constant NO_CONDITION = ADDRESS_ZERO;
 
 // Actors
-address constant ALICE_ADDRESS = address(0xa11ce);
-address constant BOB_ADDRESS = address(0xB0B);
-address constant CAROL_ADDRESS = address(0xc4601);
-address constant DAVID_ADDRESS = address(0xd471d);
+address constant ALICE_ADDRESS = address(
+    0xa11ce000a11ce000a11ce000a11ce000a11ce
+);
+address constant BOB_ADDRESS = address(0xB0B00000000B0B00000000B0B00000000B0B0);
+address constant CAROL_ADDRESS = address(
+    0xc4601000c4601000c4601000c4601000c4601
+);
+address constant DAVID_ADDRESS = address(
+    0xd471d000d471d000d471d000d471d000d471d
+);
+
+address constant RANDOM_ADDRESS = address(
+    0x0123456789012345678901234567890123456789
+);

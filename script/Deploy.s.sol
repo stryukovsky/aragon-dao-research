@@ -236,11 +236,11 @@ contract DeployScript is Script {
                     pluginSetup: adminSetup,
                     release: 1,
                     build: 2,
-                    releaseMetadata: vm.envOr(
+                    releaseMetadataUri: vm.envOr(
                         "ADMIN_PLUGIN_RELEASE_METADATA_URI",
                         string("ipfs://")
                     ),
-                    buildMetadata: vm.envOr(
+                    buildMetadataUri: vm.envOr(
                         "ADMIN_PLUGIN_BUILD_METADATA_URI",
                         string("ipfs://")
                     ),
@@ -253,11 +253,11 @@ contract DeployScript is Script {
                     pluginSetup: multisigSetup,
                     release: 1,
                     build: 3,
-                    releaseMetadata: vm.envOr(
+                    releaseMetadataUri: vm.envOr(
                         "MULTISIG_PLUGIN_RELEASE_METADATA_URI",
                         string("ipfs://")
                     ),
-                    buildMetadata: vm.envOr(
+                    buildMetadataUri: vm.envOr(
                         "MULTISIG_PLUGIN_BUILD_METADATA_URI",
                         string("ipfs://")
                     ),
@@ -270,11 +270,11 @@ contract DeployScript is Script {
                     pluginSetup: tokenVotingSetup,
                     release: 1,
                     build: 3,
-                    releaseMetadata: vm.envOr(
+                    releaseMetadataUri: vm.envOr(
                         "TOKEN_VOTING_PLUGIN_RELEASE_METADATA_URI",
                         string("ipfs://")
                     ),
-                    buildMetadata: vm.envOr(
+                    buildMetadataUri: vm.envOr(
                         "TOKEN_VOTING_PLUGIN_BUILD_METADATA_URI",
                         string("ipfs://")
                     ),
@@ -287,11 +287,11 @@ contract DeployScript is Script {
                     pluginSetup: stagedProposalProcessorSetup,
                     release: 1,
                     build: 1,
-                    releaseMetadata: vm.envOr(
+                    releaseMetadataUri: vm.envOr(
                         "STAGED_PROPOSAL_PROCESSOR_PLUGIN_RELEASE_METADATA_URI",
                         string("ipfs://")
                     ),
-                    buildMetadata: vm.envOr(
+                    buildMetadataUri: vm.envOr(
                         "STAGED_PROPOSAL_PROCESSOR_PLUGIN_BUILD_METADATA_URI",
                         string("ipfs://")
                     ),
@@ -301,16 +301,18 @@ contract DeployScript is Script {
                     )
                 })
             }),
-            managementDaoMetadata: vm.envOr(
-                "MANAGEMENT_DAO_METADATA_URI",
-                string(
-                    "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle"
+            managementDao: ProtocolFactory.ManagementDaoParameters({
+                metadataUri: vm.envOr(
+                    "MANAGEMENT_DAO_METADATA_URI",
+                    string(
+                        "ipfs://bafkreibemfrxeuwfaono6k37vbi66fctcwtioiyctrl4fvqtqmiodt2mle"
+                    )
+                ),
+                members: readManagementDaoMembers(),
+                minApprovals: uint8(
+                    vm.envOr("MANAGEMENT_DAO_MIN_APPROVALS", uint256(3))
                 )
-            ),
-            managementDaoMembers: readManagementDaoMembers(),
-            managementDaoMinApprovals: uint8(
-                vm.envOr("MANAGEMENT_DAO_MIN_APPROVALS", uint256(3))
-            )
+            })
         });
     }
 

@@ -37,9 +37,7 @@ contract ProtocolFactory {
         // Plugins
         CorePlugins corePlugins;
         // Management DAO
-        string managementDaoMetadata;
-        address[] managementDaoMembers;
-        uint8 managementDaoMinApprovals;
+        ManagementDaoParameters managementDao;
     }
 
     /// @notice The struct containing the implementation addresses for OSx
@@ -75,8 +73,8 @@ contract ProtocolFactory {
         IPluginSetup pluginSetup;
         uint8 release;
         uint8 build;
-        string releaseMetadata;
-        string buildMetadata;
+        string releaseMetadataUri;
+        string buildMetadataUri;
         string subdomain;
     }
 
@@ -86,6 +84,13 @@ contract ProtocolFactory {
         CorePlugin multisigPlugin;
         CorePlugin tokenVotingPlugin;
         CorePlugin stagedProposalProcessorPlugin;
+    }
+
+    /// @notice A struct with the voting settings and metadata of the Management DAO
+    struct ManagementDaoParameters {
+        string metadataUri;
+        address[] members;
+        uint8 minApprovals;
     }
 
     /// @notice The struct containing the deployed protocol addresses
@@ -179,7 +184,7 @@ contract ProtocolFactory {
                     abi.encodeCall(
                         DAO.initialize,
                         (
-                            bytes(parameters.managementDaoMetadata), // Metadata URI
+                            bytes(parameters.managementDao.metadataUri), // Metadata URI
                             address(this), // initialOwner
                             address(0), // Trusted forwarder
                             "" // DAO URI
@@ -451,8 +456,8 @@ contract ProtocolFactory {
                 (
                     corePlugin.release,
                     address(parameters.osxImplementations.placeholderSetup),
-                    bytes(corePlugin.buildMetadata),
-                    bytes(corePlugin.releaseMetadata)
+                    bytes(corePlugin.buildMetadataUri),
+                    bytes(corePlugin.releaseMetadataUri)
                 )
             );
 
@@ -471,8 +476,8 @@ contract ProtocolFactory {
             (
                 corePlugin.release,
                 address(corePlugin.pluginSetup),
-                bytes(corePlugin.buildMetadata),
-                bytes(corePlugin.releaseMetadata)
+                bytes(corePlugin.buildMetadataUri),
+                bytes(corePlugin.releaseMetadataUri)
             )
         );
 
@@ -507,18 +512,18 @@ contract ProtocolFactory {
 
         // Check the members length
         if (
-            parameters.managementDaoMembers.length <
-            parameters.managementDaoMinApprovals
+            parameters.managementDao.members.length <
+            parameters.managementDao.minApprovals
         ) {
-            revert("managementDaoMembers is too small");
+            revert("managementDao.members is too small");
         }
 
         // Prepare the installation
         bytes memory setupData = abi.encode(
-            parameters.managementDaoMembers,
+            parameters.managementDao.members,
             Multisig.MultisigSettings({
                 onlyListed: true,
-                minApprovals: parameters.managementDaoMinApprovals
+                minApprovals: parameters.managementDao.minApprovals
             }),
             IPlugin.TargetConfig({
                 target: deployment.managementDao,

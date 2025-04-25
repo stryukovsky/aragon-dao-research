@@ -1,4 +1,4 @@
-ProtocolFactory:
+ProtocolFactoryTest:
   - when: Deploying the ProtocolFactory
     then:
       - it: getParameters should return the exact same parameters as provided to the constructor

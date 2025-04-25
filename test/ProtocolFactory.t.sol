@@ -3,9 +3,19 @@ pragma solidity ^0.8.23;
 
 import {Test, console} from "forge-std/Test.sol";
 import {AragonTest} from "./base/AragonTest.sol";
+import {ProtocolFactory} from "../src/ProtocolFactory.sol";
+import {ProtocolFactoryBuilder} from "./builders/ProtocolFactoryBuilder.sol";
 
-contract ProtocolFactory is AragonTest {
-    function setUp() public {}
+contract ProtocolFactoryTest is AragonTest {
+    ProtocolFactoryBuilder builder;
+
+    ProtocolFactory factory;
+    ProtocolFactory.Deployment deployment;
+
+    function setUp() public {
+        builder = new ProtocolFactoryBuilder();
+        factory = builder.build();
+    }
 
     function test_WhenDeployingTheProtocolFactory() external {
         // It getParameters should return the exact same parameters as provided to the constructor

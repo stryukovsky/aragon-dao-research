@@ -52,8 +52,8 @@ The env.example file contains descriptions for all the initial settings. You don
 Check the available make targets to simulate and deploy the smart contracts:
 
 ```
-- make predeploy     Simulate a protocol deployment
-- make deploy    	   Deploy the protocol and verify the source code
+- make predeploy        Simulate a protocol deployment
+- make deploy           Deploy the protocol and verify the source code
 ```
 
 ### Deployment Checklist
@@ -101,9 +101,6 @@ Check the available make targets to simulate and deploy the smart contracts:
 
 ## Troubleshooting (CLI)
 
-```sh
-# Run the deployment script
-
 If you get the error Failed to get EIP-1559 fees, add `--legacy` to the command:
 
 ```sh
@@ -118,9 +115,9 @@ forge script --chain "$NETWORK" script/DeployGauges.s.sol:Deploy --rpc-url "$RPC
 
 ## Testing
 
-See the [test tree](./TEST_TREE.md) file for a visual representation of the implemented tests.
+See the [TEST_TREE.md](./TEST_TREE.md) file for a visual summary of the implemented tests.
 
-Tests can be described using yaml files. They will be automatically transformed into solidity test files with [bulloak](https://github.com/alexfertel/bulloak).
+Tests can be described using yaml files. `make` will transform them into solidity test files using [bulloak](https://github.com/alexfertel/bulloak).
 
 Create a file with `.t.yaml` extension within the `test` folder and describe a hierarchy of test cases:
 
@@ -159,7 +156,7 @@ Then use `make` to automatically sync the described branches into solidity test 
 
 ```sh
 $ make
-Available targets:
+Testing lifecycle:
 # ...
 - make sync-tests       Scaffold or sync tree files into solidity tests
 - make check-tests      Checks if solidity files are out of sync
@@ -168,7 +165,7 @@ Available targets:
 $ make sync-tests
 ```
 
-The final output will look like a human readable tree:
+Each yaml file will produce a human readable tree like below, followed by a solidity test scaffold:
 
 ```
 # MyTest.tree

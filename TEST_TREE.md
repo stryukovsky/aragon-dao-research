@@ -33,20 +33,20 @@ ProtocolFactory
     │   ├── It Should be able to publish new core plugin versions
     │   └── It Should have a multisig with the given members and settings
     ├── When Preparing an admin plugin installation
-    │   └── It It should complete normally
+    │   └── It Should complete normally
     ├── When Applying an admin plugin installation
-    │   └── It It should allow the admin to execute on the DAO
+    │   └── It Should allow the admin to execute on the DAO
     ├── When Preparing a multisig plugin installation
-    │   └── It It should complete normally
+    │   └── It Should complete normally
     ├── When Applying a multisig plugin installation
-    │   └── It It should allow its members to approve and execute on the DAO
+    │   └── It Should allow its members to approve and execute on the DAO
     ├── When Preparing a token voting plugin installation
-    │   └── It It should complete normally
+    │   └── It Should complete normally
     ├── When Applying a token voting plugin installation
-    │   └── It It should allow its members to approve and execute on the DAO
+    │   └── It Should allow its members to approve and execute on the DAO
     ├── When Preparing an SPP plugin installation
-    │   └── It It should complete normally
+    │   └── It Should complete normally
     └── When Applying an SPP plugin installation
-        └── It It should allow its bodies to execute on the DAO
+        └── It Should allow its bodies to execute on the DAO
 ```
 
