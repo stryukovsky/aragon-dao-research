@@ -277,10 +277,8 @@ contract ProtocolFactoryBuilder is Test {
         internal
         returns (ProtocolFactory.DeploymentParameters memory params)
     {
-        address[] memory mgmtDaoMembers;
-        if (managementDaoParams.members.length > 0) {
-            mgmtDaoMembers = managementDaoParams.members;
-        } else {
+        address[] memory mgmtDaoMembers = managementDaoParams.members;
+        if (mgmtDaoMembers.length == 0) {
             // Set 3 members when empty
             mgmtDaoMembers = new address[](3);
             mgmtDaoMembers[0] = address(
@@ -367,7 +365,7 @@ contract ProtocolFactoryBuilder is Test {
             }),
             managementDao: ProtocolFactory.ManagementDaoParameters({
                 metadataUri: managementDaoParams.metadataUri,
-                members: managementDaoParams.members,
+                members: mgmtDaoMembers,
                 minApprovals: managementDaoParams.minApprovals
             })
         });

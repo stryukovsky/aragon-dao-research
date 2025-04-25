@@ -125,6 +125,9 @@ contract ProtocolFactory {
     /// @notice Thrown when attempting to call deployOnce() when the protocol is already deployed.
     error AlreadyDeployed();
 
+    /// @notice Thrown when the Management DAO has less members than minApprovals
+    error MemberListIsTooSmall();
+
     DeploymentParameters private parameters;
     Deployment private deployment;
 
@@ -515,7 +518,7 @@ contract ProtocolFactory {
             parameters.managementDao.members.length <
             parameters.managementDao.minApprovals
         ) {
-            revert("managementDao.members is too small");
+            revert MemberListIsTooSmall();
         }
 
         // Prepare the installation

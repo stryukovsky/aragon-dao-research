@@ -340,6 +340,11 @@ contract DeployScript is Script {
             "- Management DAO multisig",
             deployment.managementDaoMultisig
         );
+        address[] memory members = readManagementDaoMembers();
+        console.log("- Management DAO members");
+        for (uint256 i = 0; i < members.length; i++) {
+            console.log("  -", members[i]);
+        }
 
         console.log();
         console.log("ENS:");
