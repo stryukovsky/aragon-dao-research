@@ -29,6 +29,7 @@ import {ALICE_ADDRESS, RANDOM_ADDRESS} from "../constants.sol";
 
 contract ProtocolFactoryBuilder is Test {
     ProtocolFactory factory;
+    ProtocolFactory.DeploymentParameters deploymentParams;
 
     string daoRootDomain = "dao-test";
     string managementDaoSubdomain = "management-test";
@@ -77,6 +78,15 @@ contract ProtocolFactoryBuilder is Test {
             members: new address[](0),
             minApprovals: 3
         });
+
+    // GETTERS
+    function getDeploymentParams()
+        public
+        view
+        returns (ProtocolFactory.DeploymentParameters memory)
+    {
+        return deploymentParams;
+    }
 
     // SETTERS
 
@@ -214,8 +224,12 @@ contract ProtocolFactoryBuilder is Test {
     /// @dev Creates a DAO with the given orchestration settings.
     /// @dev The setup is done on block/timestamp 0 and tests should be made on block/timestamp 1 or later.
     function build() public returns (ProtocolFactory) {
-        ProtocolFactory.DeploymentParameters memory params = getFactoryParams();
+        ProtocolFactory.DeploymentParameters
+            memory params = computeFactoryParams();
         factory = new ProtocolFactory(params);
+
+        // Store the parameters used for later retrieval
+        deploymentParams = params;
 
         // Labels
         vm.label(address(factory), "ProtocolFactory");
@@ -273,9 +287,9 @@ contract ProtocolFactoryBuilder is Test {
         return factory;
     }
 
-    function getFactoryParams()
-        internal
-        returns (ProtocolFactory.DeploymentParameters memory params)
+    function computeFactoryParams()
+        private
+        returns (ProtocolFactory.DeploymentParameters memory result)
     {
         address[] memory mgmtDaoMembers = managementDaoParams.members;
         if (mgmtDaoMembers.length == 0) {
@@ -292,7 +306,7 @@ contract ProtocolFactoryBuilder is Test {
             );
         }
 
-        params = ProtocolFactory.DeploymentParameters({
+        result = ProtocolFactory.DeploymentParameters({
             osxImplementations: ProtocolFactory.OSxImplementations({
                 daoBase: address(new DAO()),
                 daoRegistryBase: address(new DAORegistry()),
