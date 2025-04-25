@@ -322,22 +322,511 @@ contract ProtocolFactoryTest is AragonTest {
         external
         whenInvokingDeployOnce
     {
+        // Do a first deployment
+        ProtocolFactory.DeploymentParameters memory params0 = factory
+            .getParameters();
+        factory.deployOnce();
+
+        ProtocolFactory.DeploymentParameters memory params1 = factory
+            .getParameters();
+        ProtocolFactory.Deployment memory deployment1 = factory.getDeployment();
+
         // It Should revert
+        vm.expectRevert(ProtocolFactory.AlreadyDeployed.selector);
+        factory.deployOnce();
+
         // It Parameters should remain unchanged
+        ProtocolFactory.DeploymentParameters memory params2 = factory
+            .getParameters();
+        assertEq(
+            keccak256(abi.encode(params0)),
+            keccak256(abi.encode(params1))
+        );
+        assertEq(
+            keccak256(abi.encode(params1)),
+            keccak256(abi.encode(params2))
+        );
+
         // It Deployment addresses should remain unchanged
-        vm.skip(true);
+        ProtocolFactory.Deployment memory deployment2 = factory.getDeployment();
+        assertEq(
+            keccak256(abi.encode(deployment1)),
+            keccak256(abi.encode(deployment2))
+        );
     }
 
     modifier givenAProtocolDeployment() {
         factory.deployOnce();
         deployment = factory.getDeployment();
+        deploymentParams = builder.getDeploymentParams();
+
+        // Ensure deployment actually happened for modifier sanity
+        assertNotEq(deployment.daoFactory, address(0));
 
         _;
     }
 
     function test_WhenCallingGetParameters() external givenAProtocolDeployment {
         // It Should return the given values
-        vm.skip(true);
+
+        // 1
+        factory = builder.build();
+        bytes32 hash1 = keccak256(abi.encode(factory.getParameters()));
+
+        factory = builder.build();
+        bytes32 hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertEq(
+            hash1,
+            hash2,
+            "Equal input params should produce equal output values"
+        );
+
+        // 2
+        factory = builder.withDaoRootDomain("dao-1").build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().ensParameters.daoRootDomain,
+            "dao-1",
+            "DAO root domain mismatch"
+        );
+        hash1 = hash2;
+
+        // 3
+        factory = builder.withManagementDaoSubdomain("management-1").build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().ensParameters.managementDaoSubdomain,
+            "management-1",
+            "Management DAO subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 4
+        factory = builder.withPluginSubdomain("plugin-1").build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().ensParameters.pluginSubdomain,
+            "plugin-1",
+            "Plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 5
+        factory = builder
+            .withAdminPlugin(1, 5, "releaseMeta", "buildMeta", "admin-1")
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.release,
+            1,
+            "Admin plugin release mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.build,
+            5,
+            "Admin plugin build mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.releaseMetadataUri,
+            "releaseMeta",
+            "Admin plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.buildMetadataUri,
+            "buildMeta",
+            "Admin plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.subdomain,
+            "admin-1",
+            "Admin plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 6
+        factory = builder
+            .withAdminPlugin(2, 10, "releaseMeta-2", "buildMeta-2", "admin-2")
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.release,
+            2,
+            "Admin plugin release mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.build,
+            10,
+            "Admin plugin build mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.releaseMetadataUri,
+            "releaseMeta-2",
+            "Admin plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.buildMetadataUri,
+            "buildMeta-2",
+            "Admin plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.adminPlugin.subdomain,
+            "admin-2",
+            "Admin plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 7
+        factory = builder
+            .withMultisigPlugin(1, 5, "releaseMeta", "buildMeta", "multisig-1")
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.release,
+            1,
+            "Multisig plugin release mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.build,
+            5,
+            "Multisig plugin build mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .multisigPlugin
+                .releaseMetadataUri,
+            "releaseMeta",
+            "Multisig plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.buildMetadataUri,
+            "buildMeta",
+            "Multisig plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.subdomain,
+            "multisig-1",
+            "Multisig plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 8
+        factory = builder
+            .withMultisigPlugin(
+                2,
+                10,
+                "releaseMeta-2",
+                "buildMeta-2",
+                "multisig-2"
+            )
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.release,
+            2,
+            "Multisig plugin release mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.build,
+            10,
+            "Multisig plugin build mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .multisigPlugin
+                .releaseMetadataUri,
+            "releaseMeta-2",
+            "Multisig plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.buildMetadataUri,
+            "buildMeta-2",
+            "Multisig plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.multisigPlugin.subdomain,
+            "multisig-2",
+            "Multisig plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 9
+        factory = builder
+            .withTokenVotingPlugin(
+                1,
+                5,
+                "releaseMeta",
+                "buildMeta",
+                "tokenVoting-1"
+            )
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.tokenVotingPlugin.release,
+            1,
+            "TokenVoting plugin release mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.tokenVotingPlugin.build,
+            5,
+            "TokenVoting plugin build mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .tokenVotingPlugin
+                .releaseMetadataUri,
+            "releaseMeta",
+            "TokenVoting plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .tokenVotingPlugin
+                .buildMetadataUri,
+            "buildMeta",
+            "TokenVoting plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.tokenVotingPlugin.subdomain,
+            "tokenVoting-1",
+            "TokenVoting plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 10
+        factory = builder
+            .withTokenVotingPlugin(
+                2,
+                10,
+                "releaseMeta-2",
+                "buildMeta-2",
+                "tokenVoting-2"
+            )
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.tokenVotingPlugin.release,
+            2,
+            "TokenVoting plugin release mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.tokenVotingPlugin.build,
+            10,
+            "TokenVoting plugin build mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .tokenVotingPlugin
+                .releaseMetadataUri,
+            "releaseMeta-2",
+            "TokenVoting plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .tokenVotingPlugin
+                .buildMetadataUri,
+            "buildMeta-2",
+            "TokenVoting plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory.getParameters().corePlugins.tokenVotingPlugin.subdomain,
+            "tokenVoting-2",
+            "TokenVoting plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 11
+        factory = builder
+            .withStagedProposalProcessorPlugin(
+                1,
+                5,
+                "releaseMeta",
+                "buildMeta",
+                "stagedProposalProcessor-1"
+            )
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .release,
+            1,
+            "StagedProposalProcessor plugin release mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .build,
+            5,
+            "StagedProposalProcessor plugin build mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .releaseMetadataUri,
+            "releaseMeta",
+            "StagedProposalProcessor plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .buildMetadataUri,
+            "buildMeta",
+            "StagedProposalProcessor plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .subdomain,
+            "stagedProposalProcessor-1",
+            "StagedProposalProcessor plugin subdomain mismatch"
+        );
+        hash1 = hash2;
+
+        // 12
+        factory = builder
+            .withStagedProposalProcessorPlugin(
+                2,
+                10,
+                "releaseMeta-2",
+                "buildMeta-2",
+                "stagedProposalProcessor-2"
+            )
+            .build();
+        hash2 = keccak256(abi.encode(factory.getParameters()));
+
+        assertNotEq(
+            hash1,
+            hash2,
+            "Different input params should produce different values"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .release,
+            2,
+            "StagedProposalProcessor plugin release mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .build,
+            10,
+            "StagedProposalProcessor plugin build mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .releaseMetadataUri,
+            "releaseMeta-2",
+            "StagedProposalProcessor plugin releaseMetadataUri mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .buildMetadataUri,
+            "buildMeta-2",
+            "StagedProposalProcessor plugin buildMetadataUri mismatch"
+        );
+        assertEq(
+            factory
+                .getParameters()
+                .corePlugins
+                .stagedProposalProcessorPlugin
+                .subdomain,
+            "stagedProposalProcessor-2",
+            "StagedProposalProcessor plugin subdomain mismatch"
+        );
+        hash1 = hash2;
     }
 
     function test_WhenCallingGetDeployment() external givenAProtocolDeployment {

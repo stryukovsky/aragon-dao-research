@@ -31,6 +31,32 @@ contract ProtocolFactoryBuilder is Test {
     ProtocolFactory factory;
     ProtocolFactory.DeploymentParameters deploymentParams;
 
+    address DAO_BASE = address(new DAO());
+    address DAO_REGISTRY_BASE = address(new DAORegistry());
+    address PLUGIN_REPO_REGISTRY_BASE = address(new PluginRepoRegistry());
+    address PLACEHOLDER_SETUP = address(new PlaceholderSetup());
+    address ENS_SUBDOMAIN_REGISTRAR_BASE = address(new ENSSubdomainRegistrar());
+    address GLOBAL_EXECUTOR = address(new GlobalExecutor());
+
+    DAOHelper DAO_HELPER = new DAOHelper();
+    PluginRepoHelper PLUGIN_REPO_HELPER = new PluginRepoHelper();
+    PSPHelper PSP_HELPER = new PSPHelper();
+    ENSHelper ENS_HELPER = new ENSHelper();
+
+    AdminSetup ADMIN_SETUP = new AdminSetup();
+    MultisigSetup MULTISIG_SETUP = new MultisigSetup();
+    TokenVotingSetup TOKEN_VOTING_SETUP =
+        new TokenVotingSetup(
+            new GovernanceERC20(
+                IDAO(address(0)),
+                "",
+                "",
+                GovernanceERC20.MintSettings(new address[](0), new uint256[](0))
+            ),
+            new GovernanceWrappedERC20(IERC20Upgradeable(address(0)), "", "")
+        );
+    StagedProposalProcessorSetup SPP_SETUP = new StagedProposalProcessorSetup();
+
     string daoRootDomain = "dao-test";
     string managementDaoSubdomain = "management-test";
     string pluginSubdomain = "plugin-test";
@@ -104,7 +130,7 @@ contract ProtocolFactoryBuilder is Test {
         return this;
     }
 
-    function withPluginsubdomain(
+    function withPluginSubdomain(
         string memory _domain
     ) public returns (ProtocolFactoryBuilder) {
         pluginSubdomain = _domain;
@@ -289,6 +315,7 @@ contract ProtocolFactoryBuilder is Test {
 
     function computeFactoryParams()
         private
+        view
         returns (ProtocolFactory.DeploymentParameters memory result)
     {
         address[] memory mgmtDaoMembers = managementDaoParams.members;
@@ -308,18 +335,18 @@ contract ProtocolFactoryBuilder is Test {
 
         result = ProtocolFactory.DeploymentParameters({
             osxImplementations: ProtocolFactory.OSxImplementations({
-                daoBase: address(new DAO()),
-                daoRegistryBase: address(new DAORegistry()),
-                pluginRepoRegistryBase: address(new PluginRepoRegistry()),
-                placeholderSetup: address(new PlaceholderSetup()),
-                ensSubdomainRegistrarBase: address(new ENSSubdomainRegistrar()),
-                globalExecutor: address(new GlobalExecutor())
+                daoBase: DAO_BASE,
+                daoRegistryBase: DAO_REGISTRY_BASE,
+                pluginRepoRegistryBase: PLUGIN_REPO_REGISTRY_BASE,
+                placeholderSetup: PLACEHOLDER_SETUP,
+                ensSubdomainRegistrarBase: ENS_SUBDOMAIN_REGISTRAR_BASE,
+                globalExecutor: GLOBAL_EXECUTOR
             }),
             helperFactories: ProtocolFactory.HelperFactories({
-                daoHelper: new DAOHelper(),
-                pluginRepoHelper: new PluginRepoHelper(),
-                pspHelper: new PSPHelper(),
-                ensHelper: new ENSHelper()
+                daoHelper: DAO_HELPER,
+                pluginRepoHelper: PLUGIN_REPO_HELPER,
+                pspHelper: PSP_HELPER,
+                ensHelper: ENS_HELPER
             }),
             ensParameters: ProtocolFactory.EnsParameters({
                 daoRootDomain: daoRootDomain,
@@ -328,7 +355,7 @@ contract ProtocolFactoryBuilder is Test {
             }),
             corePlugins: ProtocolFactory.CorePlugins({
                 adminPlugin: ProtocolFactory.CorePlugin({
-                    pluginSetup: new AdminSetup(),
+                    pluginSetup: ADMIN_SETUP,
                     release: adminPlugin.release,
                     build: adminPlugin.build,
                     releaseMetadataUri: adminPlugin.releaseMetadataUri,
@@ -336,7 +363,7 @@ contract ProtocolFactoryBuilder is Test {
                     subdomain: adminPlugin.subdomain
                 }),
                 multisigPlugin: ProtocolFactory.CorePlugin({
-                    pluginSetup: new MultisigSetup(),
+                    pluginSetup: MULTISIG_SETUP,
                     release: multisigPlugin.release,
                     build: multisigPlugin.build,
                     releaseMetadataUri: multisigPlugin.releaseMetadataUri,
@@ -344,22 +371,7 @@ contract ProtocolFactoryBuilder is Test {
                     subdomain: multisigPlugin.subdomain
                 }),
                 tokenVotingPlugin: ProtocolFactory.CorePlugin({
-                    pluginSetup: new TokenVotingSetup(
-                        new GovernanceERC20(
-                            IDAO(address(0)),
-                            "",
-                            "",
-                            GovernanceERC20.MintSettings(
-                                new address[](0),
-                                new uint256[](0)
-                            )
-                        ),
-                        new GovernanceWrappedERC20(
-                            IERC20Upgradeable(address(0)),
-                            "",
-                            ""
-                        )
-                    ),
+                    pluginSetup: TOKEN_VOTING_SETUP,
                     release: tokenVotingPlugin.release,
                     build: tokenVotingPlugin.build,
                     releaseMetadataUri: tokenVotingPlugin.releaseMetadataUri,
@@ -367,7 +379,7 @@ contract ProtocolFactoryBuilder is Test {
                     subdomain: tokenVotingPlugin.subdomain
                 }),
                 stagedProposalProcessorPlugin: ProtocolFactory.CorePlugin({
-                    pluginSetup: new StagedProposalProcessorSetup(),
+                    pluginSetup: SPP_SETUP,
                     release: stagedProposalProcessorPlugin.release,
                     build: stagedProposalProcessorPlugin.build,
                     releaseMetadataUri: stagedProposalProcessorPlugin
